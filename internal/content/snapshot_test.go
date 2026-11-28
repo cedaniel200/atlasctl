@@ -127,3 +127,40 @@ func TestLoadReadsBundleSourceDirectories(t *testing.T) {
 		t.Errorf("commands = %q, want %q", bundle.Commands, "commands")
 	}
 }
+
+func TestSnapshotFilterKeepsOnlySelectedBundles(t *testing.T) {
+	snapshot, err := Load(fstest.MapFS{
+		"dev/bundle.json": {Data: []byte(`{"id":"dev","version":"0.6.0","requires":[]}`)},
+		"dev/README.md":   {Data: []byte("dev\n")},
+		"qa/bundle.json":  {Data: []byte(`{"id":"qa","version":"0.6.0","requires":[]}`)},
+		"qa/README.md":    {Data: []byte("qa\n")},
+	})
+	if err != nil {
+		t.Fatalf("Load() error = %v", err)
+	}
+
+	filtered, err := snapshot.Filter([]string{"qa"})
+	if err != nil {
+		t.Fatalf("Filter() error = %v", err)
+	}
+	if bundles := filtered.Bundles(); len(bundles) != 1 || bundles[0].ID != "qa" {
+		t.Errorf("Bundles() = %v, want only qa", bundles)
+	}
+	files := filtered.Files()
+	if len(files) != 1 || files[0].Ref() != "qa/README.md" {
+		t.Errorf("Files() = %v, want only qa/README.md", files)
+	}
+	if _, ok := filtered.Read("dev", "README.md"); ok {
+		t.Error("Filter() kept a file from an inactive bundle")
+	}
+	if data, ok := filtered.Read("qa", "README.md"); !ok || string(data.Data) != "qa\n" {
+		t.Errorf("Read(qa) = (%+v, %t), want the qa file", data, ok)
+	}
+	if bundles := snapshot.Bundles(); len(bundles) != 2 {
+		t.Errorf("Filter() changed the original snapshot: %v", bundles)
+	}
+
+	if _, err := snapshot.Filter([]string{"missing"}); err == nil {
+		t.Fatal("Filter() error = nil, want an unknown bundle error")
+	}
+}
