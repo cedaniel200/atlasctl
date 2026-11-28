@@ -178,6 +178,38 @@ func (s *Snapshot) Read(bundle, filePath string) (File, bool) {
 	return file, ok
 }
 
+// Filter returns a snapshot with only the given bundles. It is the view an
+// application uses when a selection is active; the original snapshot is not
+// modified.
+func (s *Snapshot) Filter(ids []string) (*Snapshot, error) {
+	known := make(map[string]struct{}, len(s.bundles))
+	for _, bundle := range s.bundles {
+		known[bundle.ID] = struct{}{}
+	}
+
+	wanted := make(map[string]struct{}, len(ids))
+	for _, id := range ids {
+		if _, ok := known[id]; !ok {
+			return nil, fmt.Errorf("content: unknown bundle %q", id)
+		}
+		wanted[id] = struct{}{}
+	}
+
+	filtered := &Snapshot{byRef: make(map[string]File, len(s.files))}
+	for _, bundle := range s.bundles {
+		if _, ok := wanted[bundle.ID]; ok {
+			filtered.bundles = append(filtered.bundles, bundle)
+		}
+	}
+	for _, file := range s.files {
+		if _, ok := wanted[file.Bundle]; ok {
+			filtered.files = append(filtered.files, file)
+			filtered.byRef[file.Ref()] = file
+		}
+	}
+	return filtered, nil
+}
+
 // Checksum returns the lowercase hexadecimal SHA-256 of data with line endings
 // normalized to LF, as the manifest records the content the engine expects
 // regardless of the working tree's line endings.
