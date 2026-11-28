@@ -86,6 +86,8 @@ func Run(args []string, env Env) int {
 		return runApply(options, env, catalog)
 	case "check":
 		return runCheck(options, env, catalog)
+	case "doctor":
+		return runDoctor(options, env, catalog)
 	}
 
 	// Each command arrives in its own change; until then the facade names it
