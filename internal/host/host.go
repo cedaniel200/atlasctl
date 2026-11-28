@@ -28,6 +28,10 @@ type Input struct {
 // tells the application which project routes belong to the host, LegacyDirs
 // which obsolete host directories must disappear and ConfigFiles which files
 // are user configuration and must never be pruned.
+//
+// Detection lives in the strategy so the registry is the only host table:
+// there is no parallel list of signals or evidence paths. Detect is read-only;
+// the caller injects the environment lookup so detection is testable.
 type Strategy interface {
 	ID() string
 	Capabilities() Capabilities
@@ -35,4 +39,6 @@ type Strategy interface {
 	AllowedRoutes() []string
 	ConfigFiles() []string
 	LegacyDirs() []string
+	Detect(project string, getenv func(string) string) (Evidence, bool)
+	Verification() Verification
 }
