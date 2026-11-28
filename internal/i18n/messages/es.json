@@ -4,5 +4,10 @@
   "cli.available_commands": "comandos disponibles: {commands}",
   "cli.unknown_flag": "bandera desconocida: {flag}",
   "cli.missing_flag_value": "la bandera {flag} requiere un valor",
-  "cli.not_implemented": "{command}: no implementado en esta compilación"
+  "cli.not_implemented": "{command}: no implementado en esta compilación",
+  "setup.prompt.host": "host ({choices}) [{default}]: ",
+  "setup.prompt.language": "idioma del contenido (es, en) [{default}]: ",
+  "setup.prompt.docs": "ruta de documentación (existentes: {choices}; vacío para omitir) [{default}]: ",
+  "setup.prompt.decisions": "ruta de decisiones (existentes: {choices}; vacío para omitir) [{default}]: ",
+  "setup.prompt.bundles": "bundles (separados por comas o preset) [{default}]: "
 }

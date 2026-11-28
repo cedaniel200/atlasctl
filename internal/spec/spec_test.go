@@ -94,3 +94,18 @@ func TestResolveUnknownAdapterDoesNotWrite(t *testing.T) {
 		t.Errorf("the unknown adapter created .atlas: %v", err)
 	}
 }
+
+func TestDetectSpecEngine(t *testing.T) {
+	empty := t.TempDir()
+	if got := Detect(empty); got.ID != noneID || got.Root != "" {
+		t.Errorf("Detect(empty) = %+v, want none", got)
+	}
+
+	project := t.TempDir()
+	if err := os.Mkdir(filepath.Join(project, openSpecRoot), 0o755); err != nil {
+		t.Fatalf("Mkdir() error = %v", err)
+	}
+	if got := Detect(project); got.ID != openSpecID || got.Root != openSpecRoot {
+		t.Errorf("Detect(openspec) = %+v, want openspec", got)
+	}
+}

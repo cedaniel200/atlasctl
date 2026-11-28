@@ -4,5 +4,10 @@
   "cli.available_commands": "available commands: {commands}",
   "cli.unknown_flag": "unknown flag: {flag}",
   "cli.missing_flag_value": "flag {flag} requires a value",
-  "cli.not_implemented": "{command}: not implemented in this build"
+  "cli.not_implemented": "{command}: not implemented in this build",
+  "setup.prompt.host": "host ({choices}) [{default}]: ",
+  "setup.prompt.language": "content language (es, en) [{default}]: ",
+  "setup.prompt.docs": "documentation path (existing: {choices}; empty to skip) [{default}]: ",
+  "setup.prompt.decisions": "decisions path (existing: {choices}; empty to skip) [{default}]: ",
+  "setup.prompt.bundles": "bundles (comma separated, or a preset) [{default}]: "
 }

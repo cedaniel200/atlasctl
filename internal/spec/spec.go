@@ -27,13 +27,13 @@ var ErrNotApplicable = errors.New("spec: operation not applicable")
 // rejected here and nothing is created.
 func Resolve(engine state.SpecEngine, project string) (Adapter, error) {
 	switch engine.ID {
-	case "openspec":
+	case openSpecID:
 		return resolveOpenSpec(engine, project)
-	case "none":
+	case noneID:
 		return noneAdapter{}, nil
 	default:
 		return nil, fmt.Errorf(
-			"spec: unknown spec engine %q; supported: openspec, none", engine.ID,
+			"spec: unknown spec engine %q; supported: %s, %s", engine.ID, openSpecID, noneID,
 		)
 	}
 }
