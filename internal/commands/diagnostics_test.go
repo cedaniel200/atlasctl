@@ -422,3 +422,26 @@ func TestDoctorWithoutState(t *testing.T) {
 		t.Errorf("Doctor() error = %v, want ErrNotConfigured", err)
 	}
 }
+
+func TestDoctorReportsInvalidLayoutInsteadOfFailing(t *testing.T) {
+	project := t.TempDir()
+	if _, err := Create(request(project, setup.Answers{Host: "opencode"})); err != nil {
+		t.Fatalf("Create() error = %v", err)
+	}
+	written := readState(t, project)
+	written.Layout.Docs = "../escape"
+	if err := state.Save(filepath.Join(project, ".atlas", "state.json"), written); err != nil {
+		t.Fatalf("state.Save() error = %v", err)
+	}
+
+	report, err := Doctor(DoctorRequest{Project: project, Getenv: emptyEnv})
+	if err != nil {
+		t.Fatalf("Doctor() error = %v", err)
+	}
+	if report.LayoutError == "" {
+		t.Error("layout error = empty, want the invalid layout reported")
+	}
+	if report.NextAction != "review" {
+		t.Errorf("next action = %q, want review", report.NextAction)
+	}
+}
