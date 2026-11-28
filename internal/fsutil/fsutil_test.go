@@ -263,3 +263,71 @@ func mustSymlink(t *testing.T, target, link string) {
 		t.Skipf("symbolic links unavailable: %v", err)
 	}
 }
+
+func TestRemoveProjectTreeRemovesDirectoryWithoutFollowingSymlinks(t *testing.T) {
+	root := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(root, "legacy", "sub"), 0o755); err != nil {
+		t.Fatalf("MkdirAll() error = %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(root, "legacy", "a.md"), []byte("a"), 0o644); err != nil {
+		t.Fatalf("WriteFile() error = %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(root, "legacy", "sub", "b.md"), []byte("b"), 0o644); err != nil {
+		t.Fatalf("WriteFile() error = %v", err)
+	}
+	outside := t.TempDir()
+	target := filepath.Join(outside, "target.md")
+	if err := os.WriteFile(target, []byte("fuera\n"), 0o644); err != nil {
+		t.Fatalf("WriteFile() error = %v", err)
+	}
+	mustSymlink(t, outside, filepath.Join(root, "legacy", "link"))
+
+	removed, err := RemoveProjectTree(root, "legacy")
+	if err != nil {
+		t.Fatalf("RemoveProjectTree() error = %v", err)
+	}
+	if !removed {
+		t.Error("RemoveProjectTree() = false, want true")
+	}
+	if _, err := os.Stat(filepath.Join(root, "legacy")); !errors.Is(err, fs.ErrNotExist) {
+		t.Errorf("legacy directory still exists: %v", err)
+	}
+	if data, err := os.ReadFile(target); err != nil || string(data) != "fuera\n" {
+		t.Errorf("external target = (%q, %v), want it untouched", data, err)
+	}
+}
+
+func TestRemoveProjectTreeReportsAbsence(t *testing.T) {
+	removed, err := RemoveProjectTree(t.TempDir(), "missing")
+	if err != nil {
+		t.Fatalf("RemoveProjectTree() error = %v", err)
+	}
+	if removed {
+		t.Error("RemoveProjectTree() = true for an absent path")
+	}
+}
+
+func TestRemoveProjectTreeRejectsSymlinks(t *testing.T) {
+	root := t.TempDir()
+	outside := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(outside, "legacy"), 0o755); err != nil {
+		t.Fatalf("MkdirAll() error = %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(outside, "legacy", "file.md"), []byte("x"), 0o644); err != nil {
+		t.Fatalf("WriteFile() error = %v", err)
+	}
+
+	mustSymlink(t, filepath.Join(outside, "legacy"), filepath.Join(root, "legacy"))
+	if _, err := RemoveProjectTree(root, "legacy"); err == nil {
+		t.Fatal("RemoveProjectTree() accepted a symlink at the destination")
+	}
+
+	root = t.TempDir()
+	mustSymlink(t, outside, filepath.Join(root, "parent"))
+	if _, err := RemoveProjectTree(root, "parent/legacy"); err == nil {
+		t.Fatal("RemoveProjectTree() accepted a symlink in an intermediate directory")
+	}
+	if _, err := os.Stat(filepath.Join(outside, "legacy", "file.md")); err != nil {
+		t.Errorf("external content was removed: %v", err)
+	}
+}

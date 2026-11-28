@@ -129,3 +129,31 @@ func RemoveProjectFile(root, rel string) error {
 	}
 	return nil
 }
+
+// RemoveProjectTree removes a project-relative file or directory tree. It
+// refuses paths that cross a symbolic link and does not follow links inside the
+// tree: os.RemoveAll deletes the link itself, never its target. An absent path
+// is a no-op and reports false so a repeated application stays idempotent.
+func RemoveProjectTree(root, rel string) (bool, error) {
+	if err := CheckNoSymlinks(root, rel); err != nil {
+		return false, err
+	}
+	absolute, err := SafeJoin(root, rel)
+	if err != nil {
+		return false, err
+	}
+	info, err := os.Lstat(absolute)
+	if errors.Is(err, fs.ErrNotExist) {
+		return false, nil
+	}
+	if err != nil {
+		return false, fmt.Errorf("inspect %q: %w", rel, err)
+	}
+	if info.Mode()&os.ModeSymlink != 0 {
+		return false, fmt.Errorf("refusing to follow symbolic link at %q", rel)
+	}
+	if err := os.RemoveAll(absolute); err != nil {
+		return false, fmt.Errorf("remove %q: %w", rel, err)
+	}
+	return true, nil
+}
