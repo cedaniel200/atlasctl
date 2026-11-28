@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"reflect"
 	"time"
 
 	"github.com/cedaniel200/atlasctl/internal/apply"
@@ -219,6 +220,11 @@ func deploy(project, snapshotPath string, existing *state.State, manifest *state
 	allowed := append([]string(nil), contentRoutes...)
 	allowed = append(allowed, transition.Allowed...)
 
+	var existingManifest *state.Manifest
+	if manifest != nil {
+		copy := *manifest
+		existingManifest = &copy
+	}
 	if manifest == nil {
 		manifest = &state.Manifest{SchemaVersion: state.SchemaVersion}
 	}
@@ -237,6 +243,7 @@ func deploy(project, snapshotPath string, existing *state.State, manifest *state
 	if err != nil {
 		return Result{}, err
 	}
+	skipManifestWrite := existingManifest != nil && manifestsMatch(existingManifest, planned.Manifest, EngineVersion)
 	if dryRun {
 		if err := apply.Validate(apply.Request{
 			Root:       project,
@@ -256,12 +263,13 @@ func deploy(project, snapshotPath string, existing *state.State, manifest *state
 	}
 
 	report, err := apply.Apply(apply.Request{
-		Root:          project,
-		Plan:          planned,
-		Allowed:       allowed,
-		RemoveDirs:    transition.LegacyDirs,
-		EngineVersion: EngineVersion,
-		GeneratedAt:   time.Now().UTC(),
+		Root:              project,
+		Plan:              planned,
+		Allowed:           allowed,
+		RemoveDirs:        transition.LegacyDirs,
+		EngineVersion:     EngineVersion,
+		GeneratedAt:       time.Now().UTC(),
+		SkipManifestWrite: skipManifestWrite,
 	})
 	if err != nil {
 		return Result{}, err
@@ -299,6 +307,24 @@ func deploy(project, snapshotPath string, existing *state.State, manifest *state
 		Report:   report,
 		Hooks:    hookReport,
 	}, nil
+}
+
+func manifestsMatch(existing, desired *state.Manifest, engineVersion string) bool {
+	if existing == nil || desired == nil {
+		return false
+	}
+	if existing.SchemaVersion != desired.SchemaVersion || existing.EngineVersion != engineVersion {
+		return false
+	}
+	if !reflect.DeepEqual(existing.Bundles, desired.Bundles) || len(existing.Files) != len(desired.Files) {
+		return false
+	}
+	for path, entry := range desired.Files {
+		if existing.Files[path] != entry {
+			return false
+		}
+	}
+	return true
 }
 
 func preview(planned *plan.Plan) *apply.Report {
