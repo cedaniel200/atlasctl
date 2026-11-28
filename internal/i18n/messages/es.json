@@ -18,5 +18,13 @@
   "cli.conflicting_flags": "No se pueden combinar {first} y {second}.",
   "setup.adopted": "Se adoptó el proyecto existente; el contenido del arnés ya está instalado.",
   "setup.configured": "Configuración actualizada.",
-  "setup.already_adopted": "El proyecto ya está adoptado; usa configure para cambiarlo o apply para actualizar el contenido."
+  "setup.already_adopted": "El proyecto ya está adoptado; usa configure para cambiarlo o apply para actualizar el contenido.",
+  "apply.done": "Plan aplicado.",
+  "apply.dry_run": "Simulación: no se escribió nada.",
+  "apply.updated": "Actualizados: {count}",
+  "apply.conserved": "Conservados: {count}",
+  "apply.divergent": "Divergentes: {count}",
+  "apply.pruned": "Podados: {count}",
+  "apply.not_configured": "El proyecto no está configurado; ejecuta create o adopt primero.",
+  "apply.failed": "No se pudo aplicar el plan: {error}"
 }
