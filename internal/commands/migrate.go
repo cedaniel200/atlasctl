@@ -169,7 +169,10 @@ func Migrate(request MigrateRequest) (MigrateResult, error) {
 	removed := make([]string, 0, len(plan.RemoveNew))
 	for _, relative := range plan.RemoveNew {
 		if err := fsutil.RemoveProjectFile(request.Project, relative); err != nil {
-			return result, fmt.Errorf("commands: migrated, but could not remove %q: %w", relative, err)
+			rollbackManifest(manifestPath, manifestBytes)
+			rollbackState(statePath, stateBytes)
+			rollbackDispatcher(request.Project, dispatcherState)
+			return result, fmt.Errorf("commands: could not remove %q; migration rolled back: %w", relative, err)
 		}
 		removed = append(removed, relative)
 	}
@@ -424,6 +427,10 @@ func rollbackDispatcher(project string, status migrationDispatcher) {
 }
 
 func rollbackManifest(path string, data []byte) {
+	_ = os.WriteFile(path, data, 0o644)
+}
+
+func rollbackState(path string, data []byte) {
 	_ = os.WriteFile(path, data, 0o644)
 }
 
