@@ -1,7 +1,9 @@
 package state
 
 import (
+	"encoding/json"
 	"fmt"
+	"os"
 	"time"
 )
 
@@ -41,16 +43,40 @@ type ManifestFile struct {
 	SHA256 string `json:"sha256"`
 }
 
-// LoadManifest reads and decodes a manifest file.
+// LoadManifest reads and decodes a manifest file. A v1 manifest is mapped to
+// the v2 shape but keeps SchemaVersion at 1, so callers still require an
+// explicit migration.
 func LoadManifest(path string) (*Manifest, error) {
-	var value Manifest
-	if err := loadJSON(path, &value); err != nil {
-		return nil, err
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, fmt.Errorf("read %s: %w", path, err)
 	}
-	if err := checkReadableSchema(value.SchemaVersion); err != nil {
+	var probe struct {
+		SchemaVersion int `json:"schema_version"`
+	}
+	if err := json.Unmarshal(data, &probe); err != nil {
+		return nil, fmt.Errorf("decode %s: %w", path, err)
+	}
+	if err := checkReadableSchema(probe.SchemaVersion); err != nil {
 		return nil, fmt.Errorf("%s: %w", path, err)
 	}
-	return &value, nil
+	if probe.SchemaVersion >= SchemaVersion {
+		var value Manifest
+		if err := json.Unmarshal(data, &value); err != nil {
+			return nil, fmt.Errorf("decode %s: %w", path, err)
+		}
+		return &value, nil
+	}
+
+	var legacy legacyManifest
+	if err := json.Unmarshal(data, &legacy); err != nil {
+		return nil, fmt.Errorf("decode %s as schema v1: %w", path, err)
+	}
+	value, err := legacy.toManifest()
+	if err != nil {
+		return nil, fmt.Errorf("%s: %w", path, err)
+	}
+	return value, nil
 }
 
 // SaveManifest encodes and writes a manifest file.
