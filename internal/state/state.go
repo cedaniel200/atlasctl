@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"path/filepath"
 )
 
 const (
@@ -138,10 +137,7 @@ func saveJSON(path string, value any) error {
 	if err != nil {
 		return fmt.Errorf("encode %s: %w", path, err)
 	}
-	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
-		return fmt.Errorf("create directory for %s: %w", path, err)
-	}
-	if err := os.WriteFile(path, data, 0o644); err != nil {
+	if err := writeFileAtomic(path, data); err != nil {
 		return fmt.Errorf("write %s: %w", path, err)
 	}
 	return nil
