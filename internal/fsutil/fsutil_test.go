@@ -331,3 +331,19 @@ func TestRemoveProjectTreeRejectsSymlinks(t *testing.T) {
 		t.Errorf("external content was removed: %v", err)
 	}
 }
+
+func TestWriteProjectFileModeSetsExecutable(t *testing.T) {
+	root := t.TempDir()
+	if err := WriteProjectFileMode(root, "hooks/pre-commit", []byte("#!/bin/sh\n"), 0o755); err != nil {
+		t.Fatalf("WriteProjectFileMode() error = %v", err)
+	}
+
+	info, err := os.Stat(filepath.Join(root, "hooks", "pre-commit"))
+	if err != nil {
+		t.Fatalf("Stat() error = %v", err)
+	}
+	if mode := info.Mode().Perm(); mode != 0o755 {
+		t.Errorf("mode = %o, want 0755", mode)
+	}
+	assertNoTemporaries(t, filepath.Join(root, "hooks"))
+}

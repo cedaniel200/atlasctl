@@ -103,6 +103,11 @@ func (r RootReader) Read(rel string) ([]byte, error) {
 // WriteProjectFile writes a project-relative file atomically. It refuses paths
 // that cross a symbolic link.
 func WriteProjectFile(root, rel string, data []byte) error {
+	return WriteProjectFileMode(root, rel, data, 0o644)
+}
+
+// WriteProjectFileMode is WriteProjectFile with an explicit permission mode.
+func WriteProjectFileMode(root, rel string, data []byte, mode os.FileMode) error {
 	if err := CheckNoSymlinks(root, rel); err != nil {
 		return err
 	}
@@ -110,7 +115,7 @@ func WriteProjectFile(root, rel string, data []byte) error {
 	if err != nil {
 		return err
 	}
-	return WriteFile(absolute, data)
+	return WriteFileMode(absolute, data, mode)
 }
 
 // RemoveProjectFile removes a project-relative file. It refuses paths that
