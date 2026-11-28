@@ -70,16 +70,9 @@ func existsFile(project, name string) bool {
 }
 
 func detectProfile(project string) string {
-	switch {
-	case existsFile(project, "package.json"):
-		return "node-scripts"
-	case existsFile(project, "go.mod"):
-		return "go"
-	case existsFile(project, "pyproject.toml"), existsFile(project, "requirements.txt"):
-		return "python"
-	case existsFile(project, "Cargo.toml"):
-		return "rust"
-	default:
+	proposal, ok := DetectProfile(project)
+	if !ok {
 		return ""
 	}
+	return proposal.ID
 }

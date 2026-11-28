@@ -90,6 +90,8 @@ func Run(args []string, env Env) int {
 		return runDoctor(options, env, catalog)
 	case "migrate":
 		return runMigrate(options, env, catalog)
+	case "profile":
+		return runProfile(options, env, catalog)
 	}
 
 	// Each command arrives in its own change; until then the facade names it
