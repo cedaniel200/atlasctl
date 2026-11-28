@@ -19,6 +19,9 @@ const (
 	ExitError = 1
 	// ExitUsage means the invocation was invalid.
 	ExitUsage = 2
+	// ExitFindings means the inspection succeeded and recommends actions.
+	// It is not an execution error: scripts can treat it as a distinct state.
+	ExitFindings = 3
 )
 
 // facadeCommands is the command inventory of the design. It is the single
@@ -81,6 +84,8 @@ func Run(args []string, env Env) int {
 		return runSetup(options, env, catalog)
 	case "apply":
 		return runApply(options, env, catalog)
+	case "check":
+		return runCheck(options, env, catalog)
 	}
 
 	// Each command arrives in its own change; until then the facade names it
