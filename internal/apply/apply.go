@@ -37,6 +37,9 @@ type Request struct {
 	RemoveDirs    []string
 	EngineVersion string
 	GeneratedAt   time.Time
+	// SkipManifestWrite asks the application not to rewrite an already
+	// consistent manifest. It keeps repeated applications byte-stable.
+	SkipManifestWrite bool
 }
 
 // Apply validates the whole plan, then writes, deletes and records the
@@ -59,8 +62,10 @@ func Apply(request Request) (*Report, error) {
 	if err != nil {
 		return nil, err
 	}
-	if err := saveManifest(request); err != nil {
-		return nil, err
+	if !request.SkipManifestWrite {
+		if err := saveManifest(request); err != nil {
+			return nil, err
+		}
 	}
 	return report, nil
 }
