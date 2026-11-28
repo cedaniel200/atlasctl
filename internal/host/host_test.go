@@ -71,7 +71,7 @@ func artifactsByPath(t *testing.T, artifacts []plan.Generated) map[string]plan.G
 }
 
 func TestRegistry(t *testing.T) {
-	wantIDs := []string{"opencode", "claude", "cursor"}
+	wantIDs := []string{"opencode", "claude", "cursor", "codex"}
 	if got := IDs(); !reflect.DeepEqual(got, wantIDs) {
 		t.Errorf("IDs() = %v, want %v", got, wantIDs)
 	}
@@ -149,6 +149,16 @@ func TestCapabilitiesAndRoutes(t *testing.T) {
 			},
 			routes:  []string{".cursor/agents", ".cursor/commands", ".cursor/mcp.json", "AGENTS.md"},
 			configs: []string{".cursor/mcp.json"},
+			legacy:  nil,
+		},
+		{
+			name:     "codex",
+			strategy: codex{},
+			caps: Capabilities{
+				Subagents: false, StartupFile: "AGENTS.md",
+			},
+			routes:  []string{"AGENTS.md"},
+			configs: nil,
 			legacy:  nil,
 		},
 	}
