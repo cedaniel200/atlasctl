@@ -12,6 +12,12 @@ import (
 // file or the new complete file, and an interrupted write leaves no partial
 // target behind.
 func WriteFile(path string, data []byte) error {
+	return WriteFileMode(path, data, 0o644)
+}
+
+// WriteFileMode is WriteFile with an explicit permission mode, used for
+// executable content such as Git hooks.
+func WriteFileMode(path string, data []byte, mode os.FileMode) error {
 	directory := filepath.Dir(path)
 	if err := os.MkdirAll(directory, 0o755); err != nil {
 		return fmt.Errorf("create directory for %s: %w", path, err)
@@ -34,7 +40,7 @@ func WriteFile(path string, data []byte) error {
 		discard()
 		return fmt.Errorf("write temporary file for %s: %w", path, err)
 	}
-	if err := tmp.Chmod(0o644); err != nil {
+	if err := tmp.Chmod(mode); err != nil {
 		discard()
 		return fmt.Errorf("set permissions on temporary file for %s: %w", path, err)
 	}
