@@ -114,5 +114,19 @@
   "migrate.scripts": "Scripts propios: {count}.",
   "migrate.new_removed": "Archivos .new eliminados: {paths}.",
   "migrate.new_kept": "Archivos .new divergentes conservados: {paths}.",
-  "doctor.binary": "Binario: {version}."
+  "doctor.binary": "Binario: {version}.",
+  "profile.usage": "uso: atlasctl profile detect [--write] [--force]",
+  "profile.detected": "Perfil propuesto: {id}",
+  "profile.evidence": "Evidencia: {evidence}",
+  "profile.derived": "lenguaje: {language}; runtime: {runtime}; gestor de paquetes: {package_manager}",
+  "profile.structure": "fuente: {source}; pruebas: {tests}",
+  "profile.commands_tbd": "comandos: TBD (valida cada comando ejecutándolo)",
+  "profile.none": "No se detectó ningún perfil. Añade package.json, go.mod, pyproject.toml, requirements.txt o Cargo.toml y reintenta.",
+  "profile.write_prompt": "¿Escribir {path} y actualizar state.Profile? [s/N]: ",
+  "profile.overwrite_prompt": "{path} ya existe. ¿Sobrescribirlo y actualizar state.Profile? [s/N]: ",
+  "profile.written": "Perfil escrito: {path}. state.Profile = {id}.",
+  "profile.exists": "{path} ya existe; usa --force para sobrescribirlo.",
+  "profile.proposal_only": "Solo propuesta; no se escribió nada.",
+  "profile.not_configured": "El proyecto no está configurado; ejecuta create o adopt primero.",
+  "profile.failed": "No se pudo detectar o escribir el perfil: {error}"
 }
