@@ -15,5 +15,8 @@
   "setup.complete": "Setup complete.",
   "setup.report": "Files: {updated} updated, {conserved} conserved, {divergent} divergent, {pruned} pruned.",
   "setup.failed": "Could not complete setup: {error}",
-  "cli.conflicting_flags": "Flags {first} and {second} cannot be combined."
+  "cli.conflicting_flags": "Flags {first} and {second} cannot be combined.",
+  "setup.adopted": "Adopted the existing project; the harness content is now installed.",
+  "setup.configured": "Configuration updated.",
+  "setup.already_adopted": "The project is already adopted; use configure to change it or apply to update the content."
 }

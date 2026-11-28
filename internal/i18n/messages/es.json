@@ -15,5 +15,8 @@
   "setup.complete": "Configuración completa.",
   "setup.report": "Archivos: {updated} actualizados, {conserved} conservados, {divergent} divergentes, {pruned} podados.",
   "setup.failed": "No se pudo completar la configuración: {error}",
-  "cli.conflicting_flags": "No se pueden combinar {first} y {second}."
+  "cli.conflicting_flags": "No se pueden combinar {first} y {second}.",
+  "setup.adopted": "Se adoptó el proyecto existente; el contenido del arnés ya está instalado.",
+  "setup.configured": "Configuración actualizada.",
+  "setup.already_adopted": "El proyecto ya está adoptado; usa configure para cambiarlo o apply para actualizar el contenido."
 }

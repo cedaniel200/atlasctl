@@ -156,3 +156,110 @@ func TestCreateInvalidLayoutViaCLI(t *testing.T) {
 		t.Errorf("AGENTS.md was created on an invalid layout: %v", err)
 	}
 }
+
+func writeCLIFile(t *testing.T, project, rel, data string) {
+	t.Helper()
+	path := filepath.Join(project, filepath.FromSlash(rel))
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		t.Fatalf("MkdirAll(%s) error = %v", rel, err)
+	}
+	if err := os.WriteFile(path, []byte(data), 0o644); err != nil {
+		t.Fatalf("WriteFile(%s) error = %v", rel, err)
+	}
+}
+
+func TestAdoptWithDocsViaCLI(t *testing.T) {
+	project := t.TempDir()
+	writeCLIFile(t, project, "docs/guide.md", "# Guide\n")
+	writeCLIFile(t, project, "README.md", "# Project\n")
+
+	_, _, code := runProject(t, project,
+		"--lang", "es", "adopt",
+		"--host", "opencode", "--no-decisions", "--bundle", "dev",
+	)
+	if code != ExitOK {
+		t.Fatalf("exit code = %d, want %d", code, ExitOK)
+	}
+
+	written := cliState(t, project)
+	if written.Layout.Docs != "docs" {
+		t.Errorf("docs = %q, want the existing route", written.Layout.Docs)
+	}
+	if data, err := os.ReadFile(filepath.Join(project, "docs", "guide.md")); err != nil || string(data) != "# Guide\n" {
+		t.Errorf("docs/guide.md = (%q, %v), want it untouched", data, err)
+	}
+	if data, err := os.ReadFile(filepath.Join(project, "README.md")); err != nil || string(data) != "# Project\n" {
+		t.Errorf("README.md = (%q, %v), want it untouched", data, err)
+	}
+}
+
+func TestAdoptAlreadyAdoptedViaCLI(t *testing.T) {
+	project := t.TempDir()
+	_, _, code := runProject(t, project, "--lang", "es", "create", "--host", "opencode")
+	if code != ExitOK {
+		t.Fatalf("create exit code = %d, want %d", code, ExitOK)
+	}
+	statePath := filepath.Join(project, ".atlas", "state.json")
+	before, err := os.ReadFile(statePath)
+	if err != nil {
+		t.Fatalf("ReadFile(state) error = %v", err)
+	}
+
+	_, _, code = runProject(t, project, "--lang", "es", "adopt")
+	if code != ExitOK {
+		t.Errorf("adopt exit code = %d, want %d", code, ExitOK)
+	}
+	after, err := os.ReadFile(statePath)
+	if err != nil {
+		t.Fatalf("ReadFile(state) error = %v", err)
+	}
+	if string(before) != string(after) {
+		t.Error("adopt changed the state of an already adopted project")
+	}
+}
+
+func TestConfigureViaCLI(t *testing.T) {
+	project := t.TempDir()
+	_, _, code := runProject(t, project,
+		"--lang", "es", "create",
+		"--host", "opencode", "--docs", "docs", "--no-decisions", "--bundle", "dev",
+	)
+	if code != ExitOK {
+		t.Fatalf("create exit code = %d, want %d", code, ExitOK)
+	}
+	agents, err := os.ReadFile(filepath.Join(project, "AGENTS.md"))
+	if err != nil {
+		t.Fatalf("ReadFile(AGENTS.md) error = %v", err)
+	}
+
+	_, _, code = runProject(t, project, "--lang", "en", "configure", "--docs", "documentation")
+	if code != ExitOK {
+		t.Fatalf("configure exit code = %d, want %d", code, ExitOK)
+	}
+
+	written := cliState(t, project)
+	if written.Language.User != "en" || written.Layout.Docs != "documentation" {
+		t.Errorf("state = %+v, want en and documentation", written)
+	}
+	if written.Host.ID != "opencode" {
+		t.Errorf("host = %q, want the preserved host", written.Host.ID)
+	}
+	after, err := os.ReadFile(filepath.Join(project, "AGENTS.md"))
+	if err != nil {
+		t.Fatalf("ReadFile(AGENTS.md) error = %v", err)
+	}
+	if string(agents) != string(after) {
+		t.Error("configure rewrote AGENTS.md")
+	}
+}
+
+func TestConfigureWithoutStateViaCLI(t *testing.T) {
+	project := t.TempDir()
+	_, _, code := runProject(t, project, "configure", "--host", "opencode")
+	if code != ExitError {
+		t.Errorf("exit code = %d, want %d", code, ExitError)
+	}
+	if _, err := os.Stat(filepath.Join(project, ".atlas")); !os.IsNotExist(err) {
+		t.Errorf(".atlas was created: %v", err)
+	}
+}
