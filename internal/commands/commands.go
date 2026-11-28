@@ -226,6 +226,7 @@ func deploy(project, snapshotPath string, existing *state.State, manifest *state
 		Snapshot:  selection.Snapshot,
 		Manifest:  manifest,
 		Reader:    fsutil.RootReader{Root: project},
+		Modes:     fsutil.RootModes{Root: project},
 		Generated: artifacts,
 		Options: plan.Options{
 			Prune:          prune,

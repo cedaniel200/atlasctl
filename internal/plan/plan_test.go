@@ -456,3 +456,53 @@ func TestBuildSkipsBundleSourceDirectories(t *testing.T) {
 		}
 	}
 }
+
+func TestBuildFixesGeneratedModeWhenContentMatches(t *testing.T) {
+	data := []byte("#!/bin/sh\n")
+	planned := buildPlan(t, Request{
+		Snapshot: snapshotWith(t, nil),
+		Manifest: manifestWith(map[string]state.ManifestFile{
+			".atlas/hooks/pre-commit": {
+				Bundle: "dev", Origin: "core", Layer: state.LayerGenerated,
+				SHA256: content.Checksum(data),
+			},
+		}),
+		Generated: []Generated{{
+			Path: ".atlas/hooks/pre-commit", Bundle: "dev", Origin: "core",
+			Data: data, Mode: 0o755,
+		}},
+		Reader: diskWith(map[string]string{".atlas/hooks/pre-commit": string(data)}),
+		Modes:  ModeReaderFunc(func(string) (fs.FileMode, error) { return 0o644, nil }),
+	})
+
+	action := actionAt(t, planned, ".atlas/hooks/pre-commit")
+	if action.Kind != Update || !action.ModeOnly {
+		t.Errorf("action = %+v, want a mode-only update", action)
+	}
+	if action.Mode != 0o755 || string(action.Data) != string(data) {
+		t.Errorf("action = %+v, want the expected mode and content", action)
+	}
+}
+
+func TestBuildKeepsGeneratedFileWhenModeMatches(t *testing.T) {
+	data := []byte("#!/bin/sh\n")
+	planned := buildPlan(t, Request{
+		Snapshot: snapshotWith(t, nil),
+		Manifest: manifestWith(map[string]state.ManifestFile{
+			".atlas/hooks/pre-commit": {
+				Bundle: "dev", Origin: "core", Layer: state.LayerGenerated,
+				SHA256: content.Checksum(data),
+			},
+		}),
+		Generated: []Generated{{
+			Path: ".atlas/hooks/pre-commit", Bundle: "dev", Origin: "core",
+			Data: data, Mode: 0o755,
+		}},
+		Reader: diskWith(map[string]string{".atlas/hooks/pre-commit": string(data)}),
+		Modes:  ModeReaderFunc(func(string) (fs.FileMode, error) { return 0o755, nil }),
+	})
+
+	if action := actionAt(t, planned, ".atlas/hooks/pre-commit"); action.Kind != Keep {
+		t.Errorf("kind = %q, want %q", action.Kind, Keep)
+	}
+}

@@ -83,6 +83,13 @@ func execute(request Request) (*Report, error) {
 	for _, action := range request.Plan.Actions {
 		switch action.Kind {
 		case plan.Create, plan.Update:
+			if action.ModeOnly && action.Mode != 0 {
+				if err := fsutil.ChmodProjectFile(request.Root, action.Path, action.Mode); err != nil {
+					return nil, fmt.Errorf("apply: %w", err)
+				}
+				report.Updated = append(report.Updated, action.Path)
+				break
+			}
 			mode := action.Mode
 			if mode == 0 {
 				mode = 0o644
