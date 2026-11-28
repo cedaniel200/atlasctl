@@ -1,0 +1,697 @@
+{
+  "template_version": "0.4.0",
+  "generated_at": "2026-11-22T01:45:29.386Z",
+  "note": "Generado por el bootstrap. No editar a mano.",
+  "files": {
+    ".agents/skills/README.md": {
+      "origin": "core",
+      "sha256": "3070508d733b10c79cede81ba6c7153f6f6625afc969430814007b16f46b2594",
+      "ownership": "managed"
+    },
+    ".agents/skills/architectural-decision-records/SKILL.md": {
+      "origin": "core",
+      "sha256": "2f1ba10ec570156af44080e7309cb3f30e3f6d2038c72813275874dcc2a41d7d",
+      "ownership": "managed"
+    },
+    ".agents/skills/architectural-decision-records/preferences.md": {
+      "origin": "core",
+      "sha256": "5520de51789b3a7d7e36796575d6b75f87bbfdb5d20e2661b894d1bce87f2d11",
+      "ownership": "managed"
+    },
+    ".agents/skills/architectural-decision-records/templates/custom.md": {
+      "origin": "core",
+      "sha256": "e7b6a83f485cc68930ba58ea90ef373b50efc841cbf79b194368c04aca93ea1a",
+      "ownership": "managed"
+    },
+    ".agents/skills/architectural-decision-records/templates/madr-full.md": {
+      "origin": "core",
+      "sha256": "ff0b38bc3014123893d81dbd275d9584811d30cda40d9ba703b58b8051e95f49",
+      "ownership": "managed"
+    },
+    ".agents/skills/architectural-decision-records/templates/madr-minimal.md": {
+      "origin": "core",
+      "sha256": "042bee80f846f289a13910a5fcebd6b118826aba935845b697b808ff047dcd31",
+      "ownership": "managed"
+    },
+    ".agents/skills/architectural-decision-records/templates/nygard.md": {
+      "origin": "core",
+      "sha256": "b6abb6b660320885ca484598f50c9c5c5d261ccb769666332b383f2c62fb6717",
+      "ownership": "managed"
+    },
+    ".agents/skills/architectural-decision-records/templates/y-statement.md": {
+      "origin": "core",
+      "sha256": "3affcb4d13ea52b7cc8833454a4375d623ad3249c874e0e7b713cd86ccd6dfdc",
+      "ownership": "managed"
+    },
+    ".agents/skills/conventional-commits/SKILL.md": {
+      "origin": "core",
+      "sha256": "a3aa5181795aa7d32b2135b566bfc35edb3ec9d949fbe2af98f88a716bb6dce2",
+      "ownership": "managed"
+    },
+    ".agents/skills/gherkin-specs/SKILL.md": {
+      "origin": "core",
+      "sha256": "2e568fa6f5abeffd2b97ed511eff6566afbc8155d171078cb1a3b9378d58ba6a",
+      "ownership": "managed"
+    },
+    ".agents/skills/git-workflow/SKILL.md": {
+      "origin": "core",
+      "sha256": "1e057d7fb42ccf8fa857142ecd465b75270166ef73f089fdb857531c12b66feb",
+      "ownership": "managed"
+    },
+    ".agents/skills/grilling/SKILL.md": {
+      "origin": "core",
+      "sha256": "eca24d06c0416da1215500a262897ab2f0cd91af6e432209dd6ce1dd048eca9d",
+      "ownership": "managed"
+    },
+    ".agents/skills/implementation-standards/SKILL.md": {
+      "origin": "core",
+      "sha256": "107ff0f06456a4159f5fbc6cc5e34fdc27861e4d560332ca9ac68bfc459008e2",
+      "ownership": "managed"
+    },
+    ".agents/skills/openspec-apply-change/SKILL.md": {
+      "origin": "core",
+      "sha256": "ba47971848a825e9d90b31e06e04f04a5c87d28c5a0d1ab4f5b4cbfc4394592d",
+      "ownership": "managed"
+    },
+    ".agents/skills/openspec-archive-change/SKILL.md": {
+      "origin": "core",
+      "sha256": "5d214ad332e83a1846cb06b8ac60ba70d68abace8ece333c41c653666f3635a9",
+      "ownership": "managed"
+    },
+    ".agents/skills/openspec-explore/SKILL.md": {
+      "origin": "core",
+      "sha256": "2962eaaa87dcae8a5dedd4e4b0cedbde43251bdaddcc1489605e9db7499fcc2d",
+      "ownership": "managed"
+    },
+    ".agents/skills/openspec-propose/SKILL.md": {
+      "origin": "core",
+      "sha256": "f5bfdfafa3862c65cb4a3f648152a39495b60f0c1cec580f05fa69615ed74688",
+      "ownership": "managed"
+    },
+    ".agents/skills/openspec-sync-specs/SKILL.md": {
+      "origin": "core",
+      "sha256": "0f8d143167bb7738fb8e14aaac3a7c4a0490f607f571c224fc38c407b4db94a6",
+      "ownership": "managed"
+    },
+    ".agents/skills/openspec-workflow/SKILL.md": {
+      "origin": "core",
+      "sha256": "5cf4b35b533a6b06c4ecda4c9c1ccb143a1dee27ddbe032b697ceeca49b8e61c",
+      "ownership": "managed"
+    },
+    ".agents/skills/session-end/SKILL.md": {
+      "origin": "core",
+      "sha256": "fd292c25b4e4fcee8a2b884bdb5a54c131b3af1319559346230048a0bbee3f51",
+      "ownership": "managed"
+    },
+    ".agents/skills/session-startup/SKILL.md": {
+      "origin": "core",
+      "sha256": "351eb6affabf6aebe81afd177448f234fb615f5aafab711c17abe50811e3e7e1",
+      "ownership": "managed"
+    },
+    ".agents/skills/test-driven-development/SKILL.md": {
+      "origin": "core",
+      "sha256": "1124b9006ddfe5d0c719ff9c06be0f91979b6adf7320aad338086532c83ffd1a",
+      "ownership": "managed"
+    },
+    ".agents/skills/test-driven-development/testing-anti-patterns.md": {
+      "origin": "core",
+      "sha256": "bde453bc258f06543987477c837939afaa774ea2acbd9f308d702fc452bc4283",
+      "ownership": "managed"
+    },
+    ".agents/skills/update-harness/SKILL.md": {
+      "origin": "core",
+      "sha256": "fb574e8f0f13a37bb34f2b07dff8641fa239a6a53068cf86ad735b20fd9eee73",
+      "ownership": "managed"
+    },
+    ".agents/skills/using-git-worktrees/SKILL.md": {
+      "origin": "core",
+      "sha256": "823e88b91f5b2292d79a5a83ccd5f438b9f721838a1f349d1975cba7870608da",
+      "ownership": "managed"
+    },
+    ".agents/skills/using-git-worktrees/references/common-mistakes.md": {
+      "origin": "core",
+      "sha256": "8da13c01ff14698142e45936a473aa0cad6aefb6529894904c9acf9df4a791c6",
+      "ownership": "managed"
+    },
+    ".atlas/README.md": {
+      "origin": "core",
+      "sha256": "67c08884776239dc6662ba212472c6cc92aeb9a26c6541e52c085858fae2a7fc",
+      "ownership": "managed"
+    },
+    ".atlas/agents/README.md": {
+      "origin": "core",
+      "sha256": "f1d0f0d98ebeb474e70f7130c1522c579dfe01bbb2563494bcaf4077fa200a64",
+      "ownership": "managed"
+    },
+    ".atlas/agents/analyst.md": {
+      "origin": "core",
+      "sha256": "1aba6c92835ed6d811e171632db359528fb5c08648a42254be967289334ebb60",
+      "ownership": "managed"
+    },
+    ".atlas/agents/business-strategist.md": {
+      "origin": "core",
+      "sha256": "dbc30bb8f49069d423522545dcc7d747e7c94a50d45f6adedb5fec31e1aa1d04",
+      "ownership": "managed"
+    },
+    ".atlas/agents/doc-writer.md": {
+      "origin": "core",
+      "sha256": "98ac35ec40ff0e922acb3e5a1691bf491918bba6d84d5a60e74ed0ac19bcded1",
+      "ownership": "managed"
+    },
+    ".atlas/agents/engineer.md": {
+      "origin": "core",
+      "sha256": "f4b7bf90dea0b4d34592ee6cc41bb69f9a8f1f53cc3b0a71904742601038c360",
+      "ownership": "managed"
+    },
+    ".atlas/agents/mentor.md": {
+      "origin": "core",
+      "sha256": "d2480311a5d217ff570d20cbb61ccf27b019ad6bedaedfd638fd23169693ae80",
+      "ownership": "managed"
+    },
+    ".atlas/agents/qa-analyst.md": {
+      "origin": "core",
+      "sha256": "7c9f1f08a86a117a6aec8e314de69be5a2ae81ad97a8aade888283730a50a89d",
+      "ownership": "managed"
+    },
+    ".atlas/agents/reviewer.md": {
+      "origin": "core",
+      "sha256": "a333d786557229c809f366422215c960cfff9b1dbf46ba2b68769d6d94a86f79",
+      "ownership": "managed"
+    },
+    ".atlas/packs/README.md": {
+      "origin": "pack:README.md",
+      "sha256": "a55f62fcab3858d1aad85f9f332924b818a81e58d35fc8fd3493393a991abeef",
+      "ownership": "managed"
+    },
+    ".atlas/packs/_templates/pack/agents/README.md": {
+      "origin": "pack:_templates",
+      "sha256": "8cede063d363e2642135e6cb543909d8b25bb4fd405e1a5976b600e172698170",
+      "ownership": "managed"
+    },
+    ".atlas/packs/_templates/pack/pack.yaml": {
+      "origin": "pack:_templates",
+      "sha256": "b98b059d9ff69b31b97eaeeeadccf2c8340ae039500618d1e327cd7845e6caf9",
+      "ownership": "managed"
+    },
+    ".atlas/packs/_templates/pack/skills/README.md": {
+      "origin": "pack:_templates",
+      "sha256": "3600a329467226e4d5d226a876c5acb11e108ef76b19a7e8d643133739e443a2",
+      "ownership": "managed"
+    },
+    ".atlas/profiles/_examples/java-gradle.yaml": {
+      "origin": "core",
+      "sha256": "91957174255b4e643e60518b6c0090b2dfe214f1d33a98bdc49e9a68ecd85db5",
+      "ownership": "managed"
+    },
+    ".atlas/profiles/_examples/node-ts.yaml": {
+      "origin": "core",
+      "sha256": "4c9cc5222930a4f6b5c612cf3b1e541fd8ab12478a1db3e1e3373bca69737191",
+      "ownership": "managed"
+    },
+    ".atlas/profiles/_templates/profile.yaml": {
+      "origin": "core",
+      "sha256": "6c5ff5593487abe9108250e684c6e3c7daf998647ddcb5afa54d9b232478e5bf",
+      "ownership": "managed"
+    },
+    ".atlas/scripts/actualizar-arnes.mjs": {
+      "origin": "core",
+      "sha256": "74ab976024a01bdc664e144f565d3031e8bee3aa934c22283986cdc98f1e0dab",
+      "ownership": "managed"
+    },
+    ".atlas/scripts/actualizar-arnes.test.mjs": {
+      "origin": "core",
+      "sha256": "6938b0e8b8d444d908f670d01ba38cff79c4fb12f8d9103ae02b983ae1e03d10",
+      "ownership": "managed"
+    },
+    ".atlas/scripts/adoptar-agents.mjs": {
+      "origin": "core",
+      "sha256": "a286a651982579fe39b155fcdd69b8eab1bac5a59f111bfeb3e19b502f70327a",
+      "ownership": "managed"
+    },
+    ".atlas/scripts/aplicar-docs.mjs": {
+      "origin": "core",
+      "sha256": "1c32c0cb2ecdb04efdddc51e423ed7940ab15c139a3e6b600a2b8628153f6e23",
+      "ownership": "managed"
+    },
+    ".atlas/scripts/aplicar-docs.test.mjs": {
+      "origin": "core",
+      "sha256": "6841b02ef27f55d63ae4118ef7cc9faa783c321eeb15ea7349830950c2f72875",
+      "ownership": "managed"
+    },
+    ".atlas/scripts/combinar-readme.mjs": {
+      "origin": "core",
+      "sha256": "6c88a660aef05f8e31c8e78e11c130b3ee64321e57b6564090d3a836dc3a06f4",
+      "ownership": "managed"
+    },
+    ".atlas/scripts/crear-pack.mjs": {
+      "origin": "core",
+      "sha256": "ecad16dd77efb7d9a1175df9cc372209cf7317cee2e3a2b9b3ae201304ce97a0",
+      "ownership": "managed"
+    },
+    ".atlas/scripts/crear-perfil.mjs": {
+      "origin": "core",
+      "sha256": "7985f9261d9687f99ba365ccbd377f633569307ada3c592b7fc037d166048aef",
+      "ownership": "managed"
+    },
+    ".atlas/scripts/generar-manifiesto.mjs": {
+      "origin": "core",
+      "sha256": "e2cdb6e330cfc0b8d8727cea3fd52cdf1b49961743138692cd39ebf16bcaab9a",
+      "ownership": "managed"
+    },
+    ".atlas/scripts/generar-manifiesto.test.mjs": {
+      "origin": "core",
+      "sha256": "44a088eeba68b969d4e9cd32a022e266d4f545f205f52703b294108cc49bff73",
+      "ownership": "managed"
+    },
+    ".atlas/scripts/githooks.test.mjs": {
+      "origin": "core",
+      "sha256": "3bd5c78c61dd0a8f67ae633796f40a1e6b242ec97aa7bdb384aa14e4b5c54294",
+      "ownership": "managed"
+    },
+    ".atlas/scripts/hosts.test.mjs": {
+      "origin": "core",
+      "sha256": "71a753d51a4ff66bfccf1db5c4bf29983d84d3bcea1670a15832c4e609bdb29c",
+      "ownership": "managed"
+    },
+    ".atlas/scripts/inventariar-adopcion.mjs": {
+      "origin": "core",
+      "sha256": "fe118b07877c4ff5324a0a8e7e92e15ef2e73ffd9eedffadf9d0165439f0a370",
+      "ownership": "managed"
+    },
+    ".atlas/scripts/inventario.test.mjs": {
+      "origin": "core",
+      "sha256": "1eb18dd33b11ea7b2448a60ea7d1ca25f74364a9113b2865a54fcb0709e0d658",
+      "ownership": "managed"
+    },
+    ".atlas/scripts/lib/hosts.mjs": {
+      "origin": "core",
+      "sha256": "0a24606f834c0038ed4bb0fd5abd85f7fcfda6c96b69f0e914a7100f6c9dcef9",
+      "ownership": "managed"
+    },
+    ".atlas/scripts/lib/inventario.mjs": {
+      "origin": "core",
+      "sha256": "c239aaa38fceb2a14464ac720f6d4a904204b430fd7187c2fa4dae4bc02f1db8",
+      "ownership": "managed"
+    },
+    ".atlas/scripts/medir-contexto.mjs": {
+      "origin": "core",
+      "sha256": "b93248c090240869d69312a2c2a7dca716b3dd70aff96a3c563ae9853f4413aa",
+      "ownership": "managed"
+    },
+    ".atlas/scripts/medir-contexto.test.mjs": {
+      "origin": "core",
+      "sha256": "46361c1ab160e25f2533a35c0b3f320f4ad42081786f1cb1325a432ebed6d7db",
+      "ownership": "managed"
+    },
+    ".atlas/scripts/minimizar.mjs": {
+      "origin": "core",
+      "sha256": "71c8c902837fd8b4c92bc2d36e11b67ea30110810a62f4d2ae5a887043b66a0c",
+      "ownership": "managed"
+    },
+    ".atlas/scripts/mover-legal.mjs": {
+      "origin": "core",
+      "sha256": "93dfe34eae0458f6df496477b233f02a822de96916c536423807a03c75976c79",
+      "ownership": "managed"
+    },
+    ".atlas/scripts/renderizar-adaptadores.mjs": {
+      "origin": "core",
+      "sha256": "52d65c2316b1beff41730b17459f533af94903e1af48b9854e49685aafe6acde",
+      "ownership": "managed"
+    },
+    ".atlas/scripts/renderizar-adaptadores.test.mjs": {
+      "origin": "core",
+      "sha256": "901f8dbc1bbdccfd0fdc43951b70d75eec0d357027b8d1db419b8fe7a7bc0fbf",
+      "ownership": "managed"
+    },
+    ".atlas/scripts/sha256.ps1": {
+      "origin": "core",
+      "sha256": "26e6591ae7bf23f6f1467f07da4857ab794db713f55aa79ecbde1dbc9dee0cfa",
+      "ownership": "managed"
+    },
+    ".atlas/scripts/sha256.sh": {
+      "origin": "core",
+      "sha256": "71fcd83028b89c95f1eea1f232a682b529f531263e21e7673e0056e2dbcc971e",
+      "ownership": "managed"
+    },
+    ".atlas/scripts/validar-contrato.mjs": {
+      "origin": "core",
+      "sha256": "a19f502725ce1ded6cbbc0ed43a4cb9fdfd6d408806636fa58fe971a0be77197",
+      "ownership": "managed"
+    },
+    ".atlas/scripts/validar-contrato.test.mjs": {
+      "origin": "core",
+      "sha256": "3046d0fc597b83d3ce4c6675ae9f9eaf056d8a41921b796aa30bc089fb43fedf",
+      "ownership": "managed"
+    },
+    ".atlas/scripts/validar-manifiesto.mjs": {
+      "origin": "core",
+      "sha256": "3df4fc6037be0328e498e8e4121f80995899092d31be0637f2f3da7ba2add71d",
+      "ownership": "managed"
+    },
+    ".atlas/scripts/validar-perfiles.mjs": {
+      "origin": "core",
+      "sha256": "201ed5562ad8d1b3ee5df94e69ab3fa11c07d8a64fa01499a85686af31a46999",
+      "ownership": "managed"
+    },
+    ".atlas/scripts/validar-run.mjs": {
+      "origin": "core",
+      "sha256": "2f5f172d1d34b2f9ca0215db5af757c1f8f069ecdcb0d4688d6dd94dfb1e5d72",
+      "ownership": "managed"
+    },
+    ".githooks/pre-commit": {
+      "origin": "core",
+      "sha256": "a2472ef6094affc0cc13ca728c0a043fe53472378473d7f710812a5916ee9f03",
+      "ownership": "managed"
+    },
+    ".githooks/pre-commit.d/10-worktree-guard.sh": {
+      "origin": "core",
+      "sha256": "75f18188c46a03c863d6ff400fe6df557b7a36dfdacef56796f14fb6ec28451e",
+      "ownership": "managed"
+    },
+    ".githooks/pre-commit.d/20-gitleaks.sh": {
+      "origin": "core",
+      "sha256": "fc7f3b40958223f4ceeb2e177754b46913293a319922da3d912e68516fbe26fb",
+      "ownership": "managed"
+    },
+    ".gitignore": {
+      "origin": "core",
+      "sha256": "22a975bc3ceea4aff46852c682f03e2a719c8313569b21b50247dd7820a946be",
+      "ownership": "owned"
+    },
+    ".opencode/agent/analyst.md": {
+      "origin": "host:opencode",
+      "sha256": "1745ee96b5f9e6fc0c78b312f1b215373205f27c35d1c25c3fe35aa7c3f94ebc",
+      "ownership": "generated"
+    },
+    ".opencode/agent/doc-writer.md": {
+      "origin": "host:opencode",
+      "sha256": "3860c68cf4492a7d4793b57fd476feeac9a2ab769e456a30235ea62a9125c545",
+      "ownership": "generated"
+    },
+    ".opencode/agent/engineer-node-scripts.md": {
+      "origin": "host:opencode",
+      "sha256": "edc6dea15e0477590b28bf82a1798117fcaa35865c60c5ac973c618c9d5b2267",
+      "ownership": "generated"
+    },
+    ".opencode/agent/qa-analyst.md": {
+      "origin": "host:opencode",
+      "sha256": "3ed35d3b036208d7d9f876d2e83b7cb478ed87577dbb67e3c8476838e107db03",
+      "ownership": "generated"
+    },
+    ".opencode/agent/reviewer.md": {
+      "origin": "host:opencode",
+      "sha256": "243d7429b388c81b7f227f5ff18c2b5849d4b24ac94b338e364e6e2a30906310",
+      "ownership": "generated"
+    },
+    ".opencode/commands/opsx-apply.md": {
+      "origin": "host:opencode",
+      "sha256": "e3d54dcd5d6735e4677a812e1ff08044afba7bd39c22dc75512de396b6e59b8b",
+      "ownership": "generated"
+    },
+    ".opencode/commands/opsx-archive.md": {
+      "origin": "host:opencode",
+      "sha256": "6f50e23fbc58b6167429649faa7a54159afbab4cf6202fa59274571054b33472",
+      "ownership": "generated"
+    },
+    ".opencode/commands/opsx-explore.md": {
+      "origin": "host:opencode",
+      "sha256": "a682c5c6dc0e7b8e722df339d4b4a33b0d77434eb301ad0fbf52b405f995e826",
+      "ownership": "generated"
+    },
+    ".opencode/commands/opsx-propose.md": {
+      "origin": "host:opencode",
+      "sha256": "6bd2698742f60af1d151a87e533e21201a9d18ac7354009bc7ee66c13760cf13",
+      "ownership": "generated"
+    },
+    ".opencode/commands/opsx-sync.md": {
+      "origin": "host:opencode",
+      "sha256": "f67fd4ac7b525454a79689cb14df112ff643732fa4133a9a67869c2b8794be99",
+      "ownership": "generated"
+    },
+    "AGENTS.md": {
+      "origin": "core",
+      "sha256": "25de4cc6cda6528fe6de49f5951e556bdb35fd21dc93f876fa98f387c9b26517",
+      "ownership": "owned"
+    },
+    "CLAUDE.md": {
+      "origin": "host:opencode",
+      "sha256": "336cc4fbf19beaada7ccf9986414fa91851a8d7a07dfb3ccbe800a69eed0ab49",
+      "ownership": "generated"
+    },
+    "README.md": {
+      "origin": "core",
+      "sha256": "4f7d8a3929b78009f89e2828d88a7fba60855e8bc398527f10098ea8e12ff769",
+      "ownership": "owned"
+    },
+    "adr/0001-registro-unico-de-hosts.md": {
+      "origin": "core",
+      "sha256": "2b0801c8ef337ebdd02789485ba621c91cf7cdc164e538b907cef08ddfa991a9",
+      "ownership": "owned"
+    },
+    "adr/0002-sin-permisos-por-rol-en-cursor.md": {
+      "origin": "core",
+      "sha256": "e77d8419fc7ab6d7dca28bfebe6f0ac0542580edcfab1f40b06732ea6b53b759",
+      "ownership": "owned"
+    },
+    "adr/0003-configuracion-mcp-fuera-del-manifiesto.md": {
+      "origin": "core",
+      "sha256": "3451410fdddbe5bdc117cf45e53cf4501d5d4bcb2744cf68d35387b0cbabd9c5",
+      "ownership": "owned"
+    },
+    "adr/0004-agents-md-como-unica-fuente.md": {
+      "origin": "core",
+      "sha256": "a1391e1138430dbef092c0a8e33cfed4a99e72656581032bc2d2e8c25fdce625",
+      "ownership": "owned"
+    },
+    "adr/0005-aislamiento-definido-por-la-rama.md": {
+      "origin": "core",
+      "sha256": "4f67e7288cdb4adfda241e3233905771da39138f36c6d324fe82b91b856f9cc5",
+      "ownership": "owned"
+    },
+    "adr/0006-hooks-encadenados-y-config-fuera.md": {
+      "origin": "core",
+      "sha256": "d5471f46a7be17ecaa14a539d9bbb708053888773b41f0f0107898c72ef04e4c",
+      "ownership": "owned"
+    },
+    "adr/README.md": {
+      "origin": "core",
+      "sha256": "20637bcff09606fc9c520fcab2d4697a9081908f3d8a28d4338265de5273a6f5",
+      "ownership": "owned"
+    },
+    "docs/README.en.md": {
+      "origin": "core",
+      "sha256": "1b65de4000c0268eb7f73909176327e288b9f391ec449a47684dce33c87211fc",
+      "ownership": "owned"
+    },
+    "docs/README.md": {
+      "origin": "core",
+      "sha256": "56da95119b87f3ab1707543a06ce0677114e6c194b46494e5787ac30491bb20b",
+      "ownership": "owned"
+    },
+    "docs/api/README.md": {
+      "origin": "core",
+      "sha256": "1c3e4534ff12f3883a1b4f42f17628ccc0626a4dc4d812c43edff3fbeb04cd2c",
+      "ownership": "owned"
+    },
+    "docs/architecture/README.md": {
+      "origin": "core",
+      "sha256": "0ab4d9dfe5e0373b6bf593fad93d0a8befa69901f2831239030c4d664a02f577",
+      "ownership": "owned"
+    },
+    "docs/assets/README.md": {
+      "origin": "core",
+      "sha256": "039d5c60d6a6dad1d3550054c8d9f11e924262a570888558525723729af4faf9",
+      "ownership": "owned"
+    },
+    "docs/assets/atlas-social-preview.png": {
+      "origin": "core",
+      "sha256": "b69506d6f103843c3b23a19947d8a34426076a72e0d7395cd20b810c06fdda89",
+      "ownership": "owned"
+    },
+    "docs/assets/atlas-social-preview.svg": {
+      "origin": "core",
+      "sha256": "86f48e84bd431335d4816a49793a44dfb17194e0217908904a2525e10ce05d6b",
+      "ownership": "owned"
+    },
+    "docs/functional/README.md": {
+      "origin": "core",
+      "sha256": "8ff9705670f8f1216dab92cf376fc835794d3a5ce8eb7592c75ca8f17c2a34e5",
+      "ownership": "owned"
+    },
+    "docs/guides/README.md": {
+      "origin": "core",
+      "sha256": "f559c7022b3930876869a2447ef0e864b47587a7f6c4bd7a377df9284dff6648",
+      "ownership": "owned"
+    },
+    "docs/harness/en/ADOPTION.md": {
+      "origin": "core",
+      "sha256": "0410949e96aeb9d482f6437c13469bc40a03da3ce695ceca726fe5327539699d",
+      "ownership": "owned"
+    },
+    "docs/harness/en/COMPATIBILITY.md": {
+      "origin": "core",
+      "sha256": "ac394f0e284678f6e31dafa8aba53c6ac94d2e63fd38bcf7ca04281417186b7d",
+      "ownership": "owned"
+    },
+    "docs/harness/en/GLOSSARY.md": {
+      "origin": "core",
+      "sha256": "1dccc81a995bea5f12b9af7f2ac6af21252bfa76c5fc960a1e2f97ce6934d6c7",
+      "ownership": "owned"
+    },
+    "docs/harness/en/HOOKS.md": {
+      "origin": "core",
+      "sha256": "338f9e6fb464b8761e6e39db33c3cdfd8a7a3153946108408f193fdcabbb5604",
+      "ownership": "owned"
+    },
+    "docs/harness/en/ISOLATION.md": {
+      "origin": "core",
+      "sha256": "46b1e3bb6d2cb9e97b073969662d9644338694f86cead2a1270bb2f4c9958415",
+      "ownership": "owned"
+    },
+    "docs/harness/en/QUALITY.md": {
+      "origin": "core",
+      "sha256": "bf69573e13a1f132e31295e50cd05d3e1fcfddaf45cd5bf00b07bf2771973562",
+      "ownership": "owned"
+    },
+    "docs/harness/en/QUICKSTART.md": {
+      "origin": "core",
+      "sha256": "917938bfab9998734b3cadceff256d8f39d5bdabbffa813c9d1e8c4138eaaba5",
+      "ownership": "owned"
+    },
+    "docs/harness/en/TOOLS.md": {
+      "origin": "core",
+      "sha256": "2d79a5933a3fd421547f9d310d5b780ca9ba3d1acbaa39cdd8f40600ae1bbedb",
+      "ownership": "owned"
+    },
+    "docs/harness/en/UPDATE.md": {
+      "origin": "core",
+      "sha256": "a06c2c70318f0347cbae65fb3fb3e83cedb536bd4db22324d2832e9632077aeb",
+      "ownership": "owned"
+    },
+    "docs/harness/es/ADOPTION.md": {
+      "origin": "core",
+      "sha256": "571bf26ce5cb8f765805fa9553b6eff3f228a1c82159184068e7263aa2b2ee26",
+      "ownership": "owned"
+    },
+    "docs/harness/es/COMPATIBILITY.md": {
+      "origin": "core",
+      "sha256": "4d20db9e6c724c9dc56c3f6410fa1b29cf9e5dba4c4af58c686cb5c05ab71545",
+      "ownership": "owned"
+    },
+    "docs/harness/es/GLOSSARY.md": {
+      "origin": "core",
+      "sha256": "f1b932fe7c563d3adc2e435f027cf37a7780936598ab23ea9ef47b0b4f36d5c6",
+      "ownership": "owned"
+    },
+    "docs/harness/es/HOOKS.md": {
+      "origin": "core",
+      "sha256": "61b03d84cd8eaa3420b118f889e1e5e0e868f56f650929fcd79f66714a8e9d6c",
+      "ownership": "owned"
+    },
+    "docs/harness/es/ISOLATION.md": {
+      "origin": "core",
+      "sha256": "fe5dc2c3a5fa2ae23e832c5742098371b0f8e1b7fdceb9eba4fa90be2cc36d12",
+      "ownership": "owned"
+    },
+    "docs/harness/es/QUALITY.md": {
+      "origin": "core",
+      "sha256": "fa5855eca52bfaabf3ccd1b4efb2bbc472d9699c3c61aa5cdeb950aff5db76f9",
+      "ownership": "owned"
+    },
+    "docs/harness/es/QUICKSTART.md": {
+      "origin": "core",
+      "sha256": "61510f18c3425cd5eef86850846122700de873615c6bfc3f8b14ccc30ee03e5a",
+      "ownership": "owned"
+    },
+    "docs/harness/es/TOOLS.md": {
+      "origin": "core",
+      "sha256": "735061fa4df3d975dffe5b293b88dde700564c8da09407c6292e7c661eca2945",
+      "ownership": "owned"
+    },
+    "docs/harness/es/UPDATE.md": {
+      "origin": "core",
+      "sha256": "c6f221b42332b077a95d184240f900e24d404b956bf665801fc05d0e89e73b17",
+      "ownership": "owned"
+    },
+    "docs/project-context.md": {
+      "origin": "core",
+      "sha256": "106f499636a0183c4b693c9692e751d6bc48788c38fd869651b396b92a70beb1",
+      "ownership": "owned"
+    },
+    "docs/releasing.md": {
+      "origin": "core",
+      "sha256": "f95def6f7f03a3615ff55b74c1e34a5cb0edd72b4989f476a339c6182d1b05cb",
+      "ownership": "owned"
+    },
+    "opencode.json": {
+      "origin": "host:opencode",
+      "sha256": "5aa53b978b175190dd3fa6fb87b3511c085be794b84793773a1896b22bb89ae0",
+      "ownership": "generated"
+    },
+    "openspec/config.yaml": {
+      "origin": "core",
+      "sha256": "4288a9b103f1182a1578b3e873b5f8d95013b6da7f123f8f43322e771248d90e",
+      "ownership": "owned"
+    },
+    "openspec/schemas/README.md": {
+      "origin": "core",
+      "sha256": "2ae6beaeb7e3fc60cc1aa113f3e27d05b7c213de0a0844da37b0fb9649f8db5f",
+      "ownership": "managed"
+    },
+    "openspec/schemas/spec-driven-with-adr/README.md": {
+      "origin": "core",
+      "sha256": "2e4bfb47877c9bf0a25f34c7ac596abebdb77c3caef52168394393a0ae0dad20",
+      "ownership": "managed"
+    },
+    "openspec/schemas/spec-driven-with-adr/schema.yaml": {
+      "origin": "core",
+      "sha256": "eae18d55e431fdd707a042e869c0ed89686f43d6b180723015e97ce34a97c272",
+      "ownership": "managed"
+    },
+    "openspec/schemas/spec-driven-with-adr/templates/adr.md": {
+      "origin": "core",
+      "sha256": "121d39dccc6bad2b210e990bacad3825284ecf2a63037439452932536c9b03db",
+      "ownership": "managed"
+    },
+    "openspec/schemas/spec-driven-with-adr/templates/design.md": {
+      "origin": "core",
+      "sha256": "3251f08057d142f6e3c26f65f5f100ab602ee7ce880d5503bfaa45668ba19f59",
+      "ownership": "managed"
+    },
+    "openspec/schemas/spec-driven-with-adr/templates/proposal.md": {
+      "origin": "core",
+      "sha256": "9c554e0dbe918e3dc745dcc143a999e1d102954d75fb6e51e231c4cba78f06f3",
+      "ownership": "managed"
+    },
+    "openspec/schemas/spec-driven-with-adr/templates/spec.md": {
+      "origin": "core",
+      "sha256": "e025078f238dc6e4df552a1e0a140cf9efce0bbdecbeb9f45837d45ed91dca01",
+      "ownership": "managed"
+    },
+    "openspec/schemas/spec-driven-with-adr/templates/tasks.md": {
+      "origin": "core",
+      "sha256": "b2a6a4c08c15f347a1d8c3e2d43e0c8fb066dc5cc0feb795f47555f176f9c421",
+      "ownership": "managed"
+    },
+    "openspec/specs/README.md": {
+      "origin": "core",
+      "sha256": "1ec6aec335b65b45b2e2591508fba8e227e9ba5b2f210302c886abe659a23b42",
+      "ownership": "owned"
+    },
+    "openspec/specs/host-adapters/spec.md": {
+      "origin": "core",
+      "sha256": "718fac6180bb4b202bef0acdd1f60c66b5ae1816200aaab1dcb0865181b10814",
+      "ownership": "owned"
+    },
+    "openspec/specs/project-assets/spec.md": {
+      "origin": "core",
+      "sha256": "655e95c7c23052f30eeed3c06876d4fc087cd228141de0a0c9d13db680d79793",
+      "ownership": "owned"
+    },
+    "openspec/specs/workspace-isolation/spec.md": {
+      "origin": "core",
+      "sha256": "37f47775c0dc0409794fe26fd1428e9ee117d758c38d6a4cad896ec39359393f",
+      "ownership": "owned"
+    }
+  }
+}
