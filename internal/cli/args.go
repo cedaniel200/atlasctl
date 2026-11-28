@@ -6,6 +6,7 @@ import "strings"
 type options struct {
 	lang    string
 	command string
+	args    []string
 	help    bool
 }
 
@@ -38,6 +39,7 @@ func parse(args []string) (options, *usageError) {
 			return parsed, &usageError{id: MsgUnknownFlag, args: map[string]string{"flag": arg}}
 		default:
 			parsed.command = arg
+			parsed.args = args[index+1:]
 			return parsed, nil
 		}
 	}

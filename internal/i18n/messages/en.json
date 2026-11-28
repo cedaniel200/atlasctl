@@ -9,5 +9,11 @@
   "setup.prompt.language": "content language (es, en) [{default}]: ",
   "setup.prompt.docs": "documentation path (existing: {choices}; empty to skip) [{default}]: ",
   "setup.prompt.decisions": "decisions path (existing: {choices}; empty to skip) [{default}]: ",
-  "setup.prompt.bundles": "bundles (comma separated, or a preset) [{default}]: "
+  "setup.prompt.bundles": "bundles (comma separated, or a preset) [{default}]: ",
+  "setup.created": "Created .atlas and applied the harness.",
+  "setup.pending": "Pending: {pending}",
+  "setup.complete": "Setup complete.",
+  "setup.report": "Files: {updated} updated, {conserved} conserved, {divergent} divergent, {pruned} pruned.",
+  "setup.failed": "Could not complete setup: {error}",
+  "cli.conflicting_flags": "Flags {first} and {second} cannot be combined."
 }
