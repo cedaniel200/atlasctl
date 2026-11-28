@@ -61,6 +61,7 @@ const (
 	MsgCheckNotConfigured          = "check.not_configured"
 	MsgCheckFailed                 = "check.failed"
 	MsgDoctorTitle                 = "doctor.title"
+	MsgDoctorBinary                = "doctor.binary"
 	MsgDoctorState                 = "doctor.state"
 	MsgDoctorManifest              = "doctor.manifest"
 	MsgDoctorManifestMissing       = "doctor.manifest_missing"
