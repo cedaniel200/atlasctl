@@ -233,6 +233,7 @@ func TestAdoptRespectsExistingDocs(t *testing.T) {
 	writeProjectFile(t, project, "docs/guide.md", "# Guide\n")
 	writeProjectFile(t, project, "README.md", "# Project\n")
 	writeProjectFile(t, project, "src/app.js", "export const ok = true;\n")
+	writeProjectFile(t, project, "go.mod", "module example\n")
 
 	req := request(project, setup.Answers{
 		Host:        "opencode",
@@ -252,6 +253,9 @@ func TestAdoptRespectsExistingDocs(t *testing.T) {
 	written := readState(t, project)
 	if written.Layout.Docs != "docs" {
 		t.Errorf("docs = %q, want the existing route", written.Layout.Docs)
+	}
+	if written.Profile != "go" {
+		t.Errorf("profile = %q, want the detected profile", written.Profile)
 	}
 	if got := readProjectFile(t, project, "docs/guide.md"); got != "# Guide\n" {
 		t.Errorf("docs/guide.md = %q, want it untouched", got)
