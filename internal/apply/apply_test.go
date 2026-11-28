@@ -611,3 +611,71 @@ func mustSymlink(t *testing.T, target, link string) {
 		t.Skipf("symbolic links unavailable: %v", err)
 	}
 }
+
+func TestApplyRemovesLegacyDirectories(t *testing.T) {
+	root := t.TempDir()
+	writeFiles(t, root, map[string]string{".opencode/agent/old.md": "viejo\n"})
+	planned := buildPlan(t, root, snapshotWith(t, nil), &state.Manifest{SchemaVersion: state.SchemaVersion}, nil)
+
+	request := Request{
+		Root: root, Plan: planned, Allowed: []string{".opencode/agent"},
+		RemoveDirs:    []string{".opencode/agent"},
+		EngineVersion: "0.6.0", GeneratedAt: fixedTime,
+	}
+	report, err := Apply(request)
+	if err != nil {
+		t.Fatalf("Apply() error = %v", err)
+	}
+	assertPaths(t, report.Pruned, ".opencode/agent")
+	if _, err := os.Stat(filepath.Join(root, ".opencode", "agent")); !os.IsNotExist(err) {
+		t.Errorf("legacy directory still exists: %v", err)
+	}
+
+	second, err := Apply(request)
+	if err != nil {
+		t.Fatalf("second Apply() error = %v", err)
+	}
+	assertPaths(t, second.Pruned)
+}
+
+func TestApplyRejectsUnauthorizedLegacyDirectory(t *testing.T) {
+	root := t.TempDir()
+	writeFiles(t, root, map[string]string{".opencode/agent/old.md": "viejo\n"})
+	planned := buildPlan(t, root, snapshotWith(t, nil), &state.Manifest{SchemaVersion: state.SchemaVersion}, nil)
+
+	_, err := Apply(Request{
+		Root: root, Plan: planned, RemoveDirs: []string{".opencode/agent"},
+		EngineVersion: "0.6.0", GeneratedAt: fixedTime,
+	})
+	if err == nil {
+		t.Fatal("Apply() error = nil, want a rejection of an unauthorized legacy directory")
+	}
+	if _, err := os.Stat(filepath.Join(root, ".opencode", "agent", "old.md")); err != nil {
+		t.Errorf("legacy content was removed despite the rejection: %v", err)
+	}
+}
+
+func TestApplyRejectsSymlinkedLegacyDirectory(t *testing.T) {
+	root := t.TempDir()
+	outside := t.TempDir()
+	if err := os.WriteFile(filepath.Join(outside, "old.md"), []byte("viejo\n"), 0o644); err != nil {
+		t.Fatalf("WriteFile() error = %v", err)
+	}
+	if err := os.MkdirAll(filepath.Join(root, ".opencode"), 0o755); err != nil {
+		t.Fatalf("MkdirAll() error = %v", err)
+	}
+	mustSymlink(t, outside, filepath.Join(root, ".opencode", "agent"))
+	planned := buildPlan(t, root, snapshotWith(t, nil), &state.Manifest{SchemaVersion: state.SchemaVersion}, nil)
+
+	_, err := Apply(Request{
+		Root: root, Plan: planned, Allowed: []string{".opencode/agent"},
+		RemoveDirs:    []string{".opencode/agent"},
+		EngineVersion: "0.6.0", GeneratedAt: fixedTime,
+	})
+	if err == nil {
+		t.Fatal("Apply() error = nil, want a symlink rejection")
+	}
+	if _, err := os.Stat(filepath.Join(outside, "old.md")); err != nil {
+		t.Errorf("external content was removed: %v", err)
+	}
+}

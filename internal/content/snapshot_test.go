@@ -109,3 +109,21 @@ func TestLoadRejectsMismatchedBundleID(t *testing.T) {
 		t.Errorf("Load() error = %q, want it to name both the declared and directory ids", err)
 	}
 }
+
+func TestLoadReadsBundleSourceDirectories(t *testing.T) {
+	snapshot, err := Load(fstest.MapFS{
+		"dev/bundle.json":      {Data: []byte(`{"id":"dev","version":"0.6.0","requires":[],"roles":"roles","commands":"commands"}`)},
+		"dev/roles/analyst.md": {Data: []byte("# analyst\n")},
+	})
+	if err != nil {
+		t.Fatalf("Load() error = %v", err)
+	}
+
+	bundle := snapshot.Bundles()[0]
+	if bundle.Roles != "roles" {
+		t.Errorf("roles = %q, want %q", bundle.Roles, "roles")
+	}
+	if bundle.Commands != "commands" {
+		t.Errorf("commands = %q, want %q", bundle.Commands, "commands")
+	}
+}
