@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+
+	"github.com/cedaniel200/atlasctl/internal/fsutil"
 )
 
 const (
@@ -137,7 +139,7 @@ func saveJSON(path string, value any) error {
 	if err != nil {
 		return fmt.Errorf("encode %s: %w", path, err)
 	}
-	if err := writeFileAtomic(path, data); err != nil {
+	if err := fsutil.WriteFile(path, data); err != nil {
 		return fmt.Errorf("write %s: %w", path, err)
 	}
 	return nil

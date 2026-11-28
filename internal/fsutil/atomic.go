@@ -1,4 +1,4 @@
-package state
+package fsutil
 
 import (
 	"fmt"
@@ -7,20 +7,20 @@ import (
 	"strings"
 )
 
-// writeFileAtomic writes data to a temporary file in the target directory,
-// syncs it, and renames it over the target. A reader therefore sees either the
-// previous complete file or the new complete file, and an interrupted write
-// leaves no partial target behind.
-func writeFileAtomic(path string, data []byte) error {
-	dir := filepath.Dir(path)
-	if err := os.MkdirAll(dir, 0o755); err != nil {
+// WriteFile writes data to a temporary file in the target directory, syncs it,
+// and renames it over the target. A reader sees either the previous complete
+// file or the new complete file, and an interrupted write leaves no partial
+// target behind.
+func WriteFile(path string, data []byte) error {
+	directory := filepath.Dir(path)
+	if err := os.MkdirAll(directory, 0o755); err != nil {
 		return fmt.Errorf("create directory for %s: %w", path, err)
 	}
 
 	base := filepath.Base(path)
-	removeStaleTemporaries(dir, base)
+	removeStaleTemporaries(directory, base)
 
-	tmp, err := os.CreateTemp(dir, "."+base+".tmp-")
+	tmp, err := os.CreateTemp(directory, "."+base+".tmp-")
 	if err != nil {
 		return fmt.Errorf("create temporary file for %s: %w", path, err)
 	}
@@ -50,14 +50,12 @@ func writeFileAtomic(path string, data []byte) error {
 		_ = os.Remove(name)
 		return fmt.Errorf("replace %s: %w", path, err)
 	}
-	syncDirectory(dir)
+	syncDirectory(directory)
 	return nil
 }
 
-// removeStaleTemporaries deletes temporary files left by a previous write of
-// the same target that was interrupted before renaming.
-func removeStaleTemporaries(dir, base string) {
-	entries, err := os.ReadDir(dir)
+func removeStaleTemporaries(directory, base string) {
+	entries, err := os.ReadDir(directory)
 	if err != nil {
 		return
 	}
@@ -66,14 +64,14 @@ func removeStaleTemporaries(dir, base string) {
 		if entry.IsDir() || !strings.HasPrefix(entry.Name(), prefix) {
 			continue
 		}
-		_ = os.Remove(filepath.Join(dir, entry.Name()))
+		_ = os.Remove(filepath.Join(directory, entry.Name()))
 	}
 }
 
 // syncDirectory makes the rename durable where the platform supports syncing a
 // directory; the failure is not actionable for the caller.
-func syncDirectory(dir string) {
-	handle, err := os.Open(dir)
+func syncDirectory(directory string) {
+	handle, err := os.Open(directory)
 	if err != nil {
 		return
 	}
