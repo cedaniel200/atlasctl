@@ -155,3 +155,111 @@ func assertNoTemporaries(t *testing.T, dir string) {
 		}
 	}
 }
+
+func TestCheckNoSymlinksAcceptsRealAndMissingPaths(t *testing.T) {
+	root := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(root, "docs"), 0o755); err != nil {
+		t.Fatalf("MkdirAll() error = %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(root, "docs", "guide.md"), []byte("x"), 0o644); err != nil {
+		t.Fatalf("WriteFile() error = %v", err)
+	}
+
+	if err := CheckNoSymlinks(root, "docs/guide.md"); err != nil {
+		t.Errorf("CheckNoSymlinks(real path) error = %v", err)
+	}
+	if err := CheckNoSymlinks(root, "missing/guide.md"); err != nil {
+		t.Errorf("CheckNoSymlinks(missing path) error = %v", err)
+	}
+}
+
+func TestCheckNoSymlinksRejectsSymlinkAtDestination(t *testing.T) {
+	root, target := symlinkedFile(t, "AGENTS.md")
+
+	err := CheckNoSymlinks(root, "AGENTS.md")
+	if err == nil {
+		t.Fatal("CheckNoSymlinks() error = nil, want a rejection")
+	}
+	if !strings.Contains(err.Error(), "AGENTS.md") || !strings.Contains(err.Error(), "symbolic link") {
+		t.Errorf("error = %q, want the path and the reason", err)
+	}
+	if data, err := os.ReadFile(target); err != nil || string(data) != "fuera\n" {
+		t.Errorf("target = (%q, %v), want it untouched", data, err)
+	}
+}
+
+func TestCheckNoSymlinksRejectsSymlinkInIntermediateDirectory(t *testing.T) {
+	root := t.TempDir()
+	outside := t.TempDir()
+	if err := os.WriteFile(filepath.Join(outside, "file.md"), []byte("fuera\n"), 0o644); err != nil {
+		t.Fatalf("WriteFile() error = %v", err)
+	}
+	mustSymlink(t, outside, filepath.Join(root, "docs"))
+
+	err := CheckNoSymlinks(root, "docs/file.md")
+	if err == nil {
+		t.Fatal("CheckNoSymlinks() error = nil, want a rejection")
+	}
+	if !strings.Contains(err.Error(), "docs") || !strings.Contains(err.Error(), "symbolic link") {
+		t.Errorf("error = %q, want the component and the reason", err)
+	}
+}
+
+func TestWriteProjectFileRejectsSymlinkDestination(t *testing.T) {
+	root, target := symlinkedFile(t, "AGENTS.md")
+
+	if err := WriteProjectFile(root, "AGENTS.md", []byte("nuevo\n")); err == nil {
+		t.Fatal("WriteProjectFile() error = nil, want a rejection")
+	}
+	if data, err := os.ReadFile(target); err != nil || string(data) != "fuera\n" {
+		t.Errorf("target = (%q, %v), want it untouched", data, err)
+	}
+}
+
+func TestRemoveProjectFileRejectsSymlinkDestination(t *testing.T) {
+	root, target := symlinkedFile(t, "AGENTS.md")
+
+	if err := RemoveProjectFile(root, "AGENTS.md"); err == nil {
+		t.Fatal("RemoveProjectFile() error = nil, want a rejection")
+	}
+	if _, err := os.Stat(target); err != nil {
+		t.Errorf("external target was removed: %v", err)
+	}
+}
+
+func TestRemoveProjectFileRemovesAndIgnoresAbsence(t *testing.T) {
+	root := t.TempDir()
+	path := filepath.Join(root, "old.md")
+	if err := os.WriteFile(path, []byte("x"), 0o644); err != nil {
+		t.Fatalf("WriteFile() error = %v", err)
+	}
+
+	if err := RemoveProjectFile(root, "old.md"); err != nil {
+		t.Fatalf("RemoveProjectFile() error = %v", err)
+	}
+	if _, err := os.Stat(path); !errors.Is(err, fs.ErrNotExist) {
+		t.Errorf("file still exists: %v", err)
+	}
+	if err := RemoveProjectFile(root, "old.md"); err != nil {
+		t.Errorf("RemoveProjectFile(absent) error = %v, want a no-op", err)
+	}
+}
+
+func symlinkedFile(t *testing.T, name string) (root, target string) {
+	t.Helper()
+	root = t.TempDir()
+	outside := t.TempDir()
+	target = filepath.Join(outside, "target.md")
+	if err := os.WriteFile(target, []byte("fuera\n"), 0o644); err != nil {
+		t.Fatalf("WriteFile() error = %v", err)
+	}
+	mustSymlink(t, target, filepath.Join(root, name))
+	return root, target
+}
+
+func mustSymlink(t *testing.T, target, link string) {
+	t.Helper()
+	if err := os.Symlink(target, link); err != nil {
+		t.Skipf("symbolic links unavailable: %v", err)
+	}
+}
