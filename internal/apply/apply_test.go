@@ -115,11 +115,17 @@ func assertPaths(t *testing.T, got []string, want ...string) {
 
 func buildPlan(t *testing.T, root string, snapshot *content.Snapshot, manifest *state.Manifest, generated []plan.Generated) *plan.Plan {
 	t.Helper()
+	return buildPlanWith(t, root, snapshot, manifest, generated, plan.Options{})
+}
+
+func buildPlanWith(t *testing.T, root string, snapshot *content.Snapshot, manifest *state.Manifest, generated []plan.Generated, options plan.Options) *plan.Plan {
+	t.Helper()
 	planned, err := plan.Build(plan.Request{
 		Snapshot:  snapshot,
 		Manifest:  manifest,
 		Reader:    fsutil.RootReader{Root: root},
 		Generated: generated,
+		Options:   options,
 	})
 	if err != nil {
 		t.Fatalf("plan.Build() error = %v", err)
@@ -372,5 +378,236 @@ func TestApplyRefusesConflictingPlanWithoutWriting(t *testing.T) {
 	}
 	if _, err := os.Stat(filepath.Join(root, ".atlas", "manifest.json")); !os.IsNotExist(err) {
 		t.Errorf("the manifest was written despite the conflict: %v", err)
+	}
+}
+
+func TestApplyPrunesOnlyEligibleFiles(t *testing.T) {
+	root := t.TempDir()
+	writeFiles(t, root, map[string]string{
+		"gen.md":  "g\n",
+		"base.md": "b\n",
+		"mod.md":  "propio\n",
+		"ov.md":   "override\n",
+		"own.md":  "owned\n",
+	})
+	manifest := &state.Manifest{
+		SchemaVersion: state.SchemaVersion,
+		Files: map[string]state.ManifestFile{
+			"gen.md": {
+				Bundle: "dev", Origin: "host:test", Layer: state.LayerGenerated,
+				SHA256: content.Checksum([]byte("g\n")),
+			},
+			"base.md": tracked(state.LayerBase, "b\n"),
+			"mod.md":  tracked(state.LayerBase, "viejo\n"),
+			"ov.md":   tracked(state.LayerOverrides, "base\n"),
+			"own.md":  tracked(state.LayerOwned, "x\n"),
+		},
+	}
+	planned := buildPlanWith(t, root, snapshotWith(t, nil), manifest, nil, plan.Options{Prune: true})
+
+	report, err := Apply(Request{
+		Root: root, Plan: planned, Allowed: []string{"base.md", "gen.md"},
+		EngineVersion: "0.6.0", GeneratedAt: fixedTime,
+	})
+	if err != nil {
+		t.Fatalf("Apply() error = %v", err)
+	}
+
+	assertPaths(t, report.Updated)
+	assertPaths(t, report.Pruned, "base.md", "gen.md")
+	assertPaths(t, report.Conserved, "mod.md", "ov.md", "own.md")
+	assertPaths(t, report.Divergent, "mod.md")
+
+	tree := readTree(t, root)
+	for _, gone := range []string{"base.md", "gen.md"} {
+		if _, ok := tree[gone]; ok {
+			t.Errorf("%s was not pruned", gone)
+		}
+	}
+	if tree["mod.md"] != "propio\n" {
+		t.Errorf("mod.md = %q, want the adoptter content", tree["mod.md"])
+	}
+	if tree["ov.md"] != "override\n" || tree["own.md"] != "owned\n" {
+		t.Errorf("override or owned content changed: %v", tree)
+	}
+
+	written, err := state.LoadManifest(filepath.Join(root, ".atlas", "manifest.json"))
+	if err != nil {
+		t.Fatalf("LoadManifest() error = %v", err)
+	}
+	for _, gone := range []string{"base.md", "gen.md"} {
+		if _, ok := written.Files[gone]; ok {
+			t.Errorf("%s is still in the manifest", gone)
+		}
+	}
+	assertNoNewOrTemporaryFiles(t, root)
+}
+
+func TestApplyHonorsClosedPruneExclusions(t *testing.T) {
+	root := t.TempDir()
+	protected := []string{
+		"openspec/changes/a.md",
+		".opencode/opencode.json",
+		".git/hooks/pre-commit",
+		".atlas/state.json",
+		".atlas/manifest.json",
+	}
+	files := map[string]string{"docs/old.md": "viejo\n"}
+	entries := map[string]state.ManifestFile{"docs/old.md": tracked(state.LayerBase, "viejo\n")}
+	for _, path := range protected {
+		files[path] = "viejo\n"
+		entries[path] = tracked(state.LayerBase, "viejo\n")
+	}
+	writeFiles(t, root, files)
+	manifest := &state.Manifest{SchemaVersion: state.SchemaVersion, Files: entries}
+	planned := buildPlanWith(t, root, snapshotWith(t, nil), manifest, nil, plan.Options{
+		Prune:          true,
+		SpecEngineRoot: "openspec",
+		HostConfig:     []string{".opencode/opencode.json"},
+	})
+
+	report, err := Apply(Request{
+		Root: root, Plan: planned, Allowed: []string{"docs"},
+		EngineVersion: "0.6.0", GeneratedAt: fixedTime,
+	})
+	if err != nil {
+		t.Fatalf("Apply() error = %v", err)
+	}
+
+	assertPaths(t, report.Pruned, "docs/old.md")
+	for _, path := range protected {
+		if _, err := os.Stat(filepath.Join(root, filepath.FromSlash(path))); err != nil {
+			t.Errorf("protected path %s did not survive pruning: %v", path, err)
+		}
+	}
+	if _, err := os.Stat(filepath.Join(root, "docs", "old.md")); !os.IsNotExist(err) {
+		t.Errorf("docs/old.md survived pruning: %v", err)
+	}
+}
+
+func TestApplyRejectsSymlinkAtDestination(t *testing.T) {
+	root := t.TempDir()
+	outside := t.TempDir()
+	target := filepath.Join(outside, "target.md")
+	if err := os.WriteFile(target, []byte("viejo\n"), 0o644); err != nil {
+		t.Fatalf("WriteFile() error = %v", err)
+	}
+	mustSymlink(t, target, filepath.Join(root, "AGENTS.md"))
+
+	snapshot := snapshotWith(t, map[string]string{"AGENTS.md": "nuevo\n"})
+	manifest := &state.Manifest{
+		SchemaVersion: state.SchemaVersion,
+		Files:         map[string]state.ManifestFile{"AGENTS.md": tracked(state.LayerBase, "viejo\n")},
+	}
+	planned := buildPlan(t, root, snapshot, manifest, nil)
+
+	_, err := Apply(Request{
+		Root: root, Plan: planned, Allowed: []string{"AGENTS.md"},
+		EngineVersion: "0.6.0", GeneratedAt: fixedTime,
+	})
+	if err == nil {
+		t.Fatal("Apply() error = nil, want a symlink rejection")
+	}
+	if !strings.Contains(err.Error(), "symbolic link") || !strings.Contains(err.Error(), "AGENTS.md") {
+		t.Errorf("error = %q, want the path and the reason", err)
+	}
+	if data, err := os.ReadFile(target); err != nil || string(data) != "viejo\n" {
+		t.Errorf("external target = (%q, %v), want it untouched", data, err)
+	}
+	if _, err := os.Stat(filepath.Join(root, ".atlas", "manifest.json")); !os.IsNotExist(err) {
+		t.Errorf("the manifest was written despite the rejection: %v", err)
+	}
+}
+
+func TestApplyRejectsSymlinkInIntermediateDirectory(t *testing.T) {
+	t.Run("write", func(t *testing.T) {
+		outside := t.TempDir()
+		if err := os.WriteFile(filepath.Join(outside, "file.md"), []byte("viejo\n"), 0o644); err != nil {
+			t.Fatalf("WriteFile() error = %v", err)
+		}
+		root := t.TempDir()
+		mustSymlink(t, outside, filepath.Join(root, "docs"))
+
+		snapshot := snapshotWith(t, map[string]string{"docs/file.md": "nuevo\n"})
+		manifest := &state.Manifest{
+			SchemaVersion: state.SchemaVersion,
+			Files:         map[string]state.ManifestFile{"docs/file.md": tracked(state.LayerBase, "viejo\n")},
+		}
+		planned := buildPlan(t, root, snapshot, manifest, nil)
+
+		_, err := Apply(Request{
+			Root: root, Plan: planned, Allowed: []string{"docs"},
+			EngineVersion: "0.6.0", GeneratedAt: fixedTime,
+		})
+		if err == nil {
+			t.Fatal("Apply() error = nil, want a symlink rejection")
+		}
+		if !strings.Contains(err.Error(), "docs") || !strings.Contains(err.Error(), "symbolic link") {
+			t.Errorf("error = %q, want the component and the reason", err)
+		}
+		if data, err := os.ReadFile(filepath.Join(outside, "file.md")); err != nil || string(data) != "viejo\n" {
+			t.Errorf("external file = (%q, %v), want it untouched", data, err)
+		}
+	})
+
+	t.Run("delete", func(t *testing.T) {
+		outside := t.TempDir()
+		externalDir := filepath.Join(outside, "managed")
+		if err := os.MkdirAll(externalDir, 0o755); err != nil {
+			t.Fatalf("MkdirAll() error = %v", err)
+		}
+		if err := os.WriteFile(filepath.Join(externalDir, "file.md"), []byte("x\n"), 0o644); err != nil {
+			t.Fatalf("WriteFile() error = %v", err)
+		}
+		root := t.TempDir()
+		mustSymlink(t, externalDir, filepath.Join(root, "docs"))
+
+		manifest := &state.Manifest{
+			SchemaVersion: state.SchemaVersion,
+			Files: map[string]state.ManifestFile{
+				"docs/file.md": {
+					Bundle: "dev", Origin: "host:test", Layer: state.LayerGenerated,
+					SHA256: content.Checksum([]byte("x\n")),
+				},
+			},
+		}
+		planned := buildPlan(t, root, snapshotWith(t, nil), manifest, nil)
+
+		_, err := Apply(Request{
+			Root: root, Plan: planned, Allowed: []string{"docs"},
+			EngineVersion: "0.6.0", GeneratedAt: fixedTime,
+		})
+		if err == nil {
+			t.Fatal("Apply() error = nil, want a symlink rejection")
+		}
+		if _, err := os.Stat(filepath.Join(externalDir, "file.md")); err != nil {
+			t.Errorf("external file was deleted: %v", err)
+		}
+	})
+}
+
+func TestApplyRejectsSymlinkedManifestDirectory(t *testing.T) {
+	root := t.TempDir()
+	outside := t.TempDir()
+	mustSymlink(t, outside, filepath.Join(root, ".atlas"))
+
+	planned := buildPlan(t, root, snapshotWith(t, nil), &state.Manifest{SchemaVersion: state.SchemaVersion}, nil)
+
+	_, err := Apply(Request{
+		Root: root, Plan: planned, Allowed: nil,
+		EngineVersion: "0.6.0", GeneratedAt: fixedTime,
+	})
+	if err == nil {
+		t.Fatal("Apply() error = nil, want a symlink rejection for the manifest directory")
+	}
+	if _, err := os.Stat(filepath.Join(outside, "manifest.json")); !os.IsNotExist(err) {
+		t.Errorf("the manifest was written outside the project: %v", err)
+	}
+}
+
+func mustSymlink(t *testing.T, target, link string) {
+	t.Helper()
+	if err := os.Symlink(target, link); err != nil {
+		t.Skipf("symbolic links unavailable: %v", err)
 	}
 }

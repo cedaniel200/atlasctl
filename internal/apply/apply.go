@@ -35,12 +35,8 @@ type Request struct {
 	GeneratedAt   time.Time
 }
 
-type step struct {
-	absolute string
-	action   plan.Action
-}
-
-// Apply validates the whole plan, then writes the files and the manifest.
+// Apply validates the whole plan, then writes, deletes and records the
+// manifest.
 func Apply(request Request) (*Report, error) {
 	if request.Plan == nil {
 		return nil, errors.New("apply: nil plan")
@@ -55,59 +51,73 @@ func Apply(request Request) (*Report, error) {
 		return nil, err
 	}
 
-	steps, err := preflight(request)
-	if err != nil {
+	if err := preflight(request); err != nil {
 		return nil, err
 	}
 
-	report := &Report{}
-	for _, step := range steps {
-		switch step.action.Kind {
-		case plan.Create, plan.Update:
-			if err := fsutil.WriteFile(step.absolute, step.action.Data); err != nil {
-				return nil, fmt.Errorf("apply: %w", err)
-			}
-			report.Updated = append(report.Updated, step.action.Path)
-		case plan.Keep:
-			report.Conserved = append(report.Conserved, step.action.Path)
-		default:
-			return nil, fmt.Errorf("apply: unknown action %q for %q", step.action.Kind, step.action.Path)
-		}
-		if step.action.Divergent {
-			report.Divergent = append(report.Divergent, step.action.Path)
-		}
+	report, err := execute(request)
+	if err != nil {
+		return nil, err
 	}
-
 	if err := saveManifest(request); err != nil {
 		return nil, err
 	}
 	return report, nil
 }
 
-// preflight resolves and validates every route before the first write, so an
-// unauthorized path rejects the whole application without partial effects.
-func preflight(request Request) ([]step, error) {
+func execute(request Request) (*Report, error) {
+	report := &Report{}
+	for _, action := range request.Plan.Actions {
+		switch action.Kind {
+		case plan.Create, plan.Update:
+			if err := fsutil.WriteProjectFile(request.Root, action.Path, action.Data); err != nil {
+				return nil, fmt.Errorf("apply: %w", err)
+			}
+			report.Updated = append(report.Updated, action.Path)
+		case plan.Delete:
+			if err := fsutil.RemoveProjectFile(request.Root, action.Path); err != nil {
+				return nil, fmt.Errorf("apply: %w", err)
+			}
+			report.Pruned = append(report.Pruned, action.Path)
+		case plan.Keep:
+			report.Conserved = append(report.Conserved, action.Path)
+		default:
+			return nil, fmt.Errorf("apply: unknown action %q for %q", action.Kind, action.Path)
+		}
+		if action.Divergent {
+			report.Divergent = append(report.Divergent, action.Path)
+		}
+	}
+	return report, nil
+}
+
+// preflight resolves and validates every route before the first write or
+// delete, so an unauthorized or symlinked path rejects the whole application
+// without partial effects.
+func preflight(request Request) error {
 	allowed, err := normalizeRoutes(request.Allowed)
 	if err != nil {
-		return nil, err
+		return err
+	}
+	if err := fsutil.CheckNoSymlinks(request.Root, manifestPath); err != nil {
+		return fmt.Errorf("apply: %w", err)
 	}
 
-	steps := make([]step, 0, len(request.Plan.Actions))
 	for _, action := range request.Plan.Actions {
 		if action.Kind == plan.Keep {
-			steps = append(steps, step{action: action})
 			continue
 		}
-		absolute, err := fsutil.SafeJoin(request.Root, action.Path)
-		if err != nil {
-			return nil, fmt.Errorf("apply: %w", err)
+		if _, err := fsutil.SafeJoin(request.Root, action.Path); err != nil {
+			return fmt.Errorf("apply: %w", err)
 		}
 		if !isAuthorized(action.Path, allowed) {
-			return nil, fmt.Errorf("apply: path %q is outside .atlas/ and the routes declared by the host", action.Path)
+			return fmt.Errorf("apply: path %q is outside .atlas/ and the routes declared by the host", action.Path)
 		}
-		steps = append(steps, step{absolute: absolute, action: action})
+		if err := fsutil.CheckNoSymlinks(request.Root, action.Path); err != nil {
+			return fmt.Errorf("apply: %w", err)
+		}
 	}
-	return steps, nil
+	return nil
 }
 
 func normalizeRoutes(routes []string) ([]string, error) {
@@ -150,6 +160,9 @@ func saveManifest(request Request) error {
 		manifest.GeneratedAt = time.Now().UTC()
 	}
 
+	if err := fsutil.CheckNoSymlinks(request.Root, manifestPath); err != nil {
+		return fmt.Errorf("apply: %w", err)
+	}
 	absolute, err := fsutil.SafeJoin(request.Root, manifestPath)
 	if err != nil {
 		return fmt.Errorf("apply: %w", err)
