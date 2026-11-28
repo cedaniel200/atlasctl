@@ -238,3 +238,210 @@ func TestCheckDetectsBaseAndGeneratedAbsence(t *testing.T) {
 		t.Errorf("missing files = %v, want both absences reported", want)
 	}
 }
+
+func TestDoctorReportsHostEvidence(t *testing.T) {
+	project := t.TempDir()
+	if _, err := Create(request(project, setup.Answers{Host: "opencode"})); err != nil {
+		t.Fatalf("Create() error = %v", err)
+	}
+	if err := os.MkdirAll(filepath.Join(project, ".claude"), 0o755); err != nil {
+		t.Fatalf("MkdirAll(.claude) error = %v", err)
+	}
+
+	report, err := Doctor(DoctorRequest{Project: project, Getenv: emptyEnv})
+	if err != nil {
+		t.Fatalf("Doctor() error = %v", err)
+	}
+	if report.State.EngineVersion == "" || report.State.SchemaVersion != state.SchemaVersion {
+		t.Errorf("state versions = %+v, want schema and engine", report.State)
+	}
+	if report.Host.ID != "opencode" {
+		t.Errorf("host = %q, want the stored host", report.Host.ID)
+	}
+	if report.Resolution.Host != "claude" || report.Resolution.Reason != "project" {
+		t.Errorf("resolution = %+v, want claude from project evidence", report.Resolution)
+	}
+	if report.ResolutionVerification != "unverified" {
+		t.Errorf("verification = %q, want unverified", report.ResolutionVerification)
+	}
+	if len(report.Hosts) != 4 {
+		t.Fatalf("hosts = %+v, want every registered host", report.Hosts)
+	}
+	var claude HostEvidence
+	for _, item := range report.Hosts {
+		if item.ID == "claude" {
+			claude = item
+		}
+	}
+	if len(claude.Paths) != 1 || claude.Paths[0] != ".claude" {
+		t.Errorf("claude evidence = %+v, want the .claude path", claude)
+	}
+}
+
+func TestDoctorReportsSpecCLIApplicability(t *testing.T) {
+	project := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(project, "openspec"), 0o755); err != nil {
+		t.Fatalf("MkdirAll(openspec) error = %v", err)
+	}
+	if _, err := Create(request(project, setup.Answers{Host: "opencode"})); err != nil {
+		t.Fatalf("Create() error = %v", err)
+	}
+
+	report, err := Doctor(DoctorRequest{Project: project, Getenv: emptyEnv})
+	if err != nil {
+		t.Fatalf("Doctor() error = %v", err)
+	}
+	if report.Spec.ID != "openspec" || report.Spec.Root != "openspec" {
+		t.Errorf("spec = %+v, want openspec", report.Spec)
+	}
+	if !report.Spec.CLIApplicable {
+		t.Error("openspec CLI applicability = false, want true")
+	}
+	if report.Spec.Error != "" {
+		t.Errorf("spec error = %q, want none", report.Spec.Error)
+	}
+}
+
+func TestDoctorReportsInvalidSpecInsteadOfFailing(t *testing.T) {
+	project := t.TempDir()
+	if _, err := Create(request(project, setup.Answers{Host: "opencode"})); err != nil {
+		t.Fatalf("Create() error = %v", err)
+	}
+	written := readState(t, project)
+	written.SpecEngine = state.SpecEngine{ID: "unknown"}
+	if err := state.Save(filepath.Join(project, ".atlas", "state.json"), written); err != nil {
+		t.Fatalf("state.Save() error = %v", err)
+	}
+
+	report, err := Doctor(DoctorRequest{Project: project, Getenv: emptyEnv})
+	if err != nil {
+		t.Fatalf("Doctor() error = %v", err)
+	}
+	if report.Spec.Error == "" {
+		t.Error("spec error = empty, want the unknown adapter reported")
+	}
+	if report.NextAction != "review" {
+		t.Errorf("next action = %q, want review", report.NextAction)
+	}
+}
+
+func TestDoctorRecommendsTheNextAction(t *testing.T) {
+	t.Run("configure", func(t *testing.T) {
+		project := t.TempDir()
+		if _, err := Create(request(project, setup.Answers{Host: "opencode"})); err != nil {
+			t.Fatalf("Create() error = %v", err)
+		}
+		report, err := Doctor(DoctorRequest{Project: project, Getenv: emptyEnv})
+		if err != nil {
+			t.Fatalf("Doctor() error = %v", err)
+		}
+		if report.NextAction != "configure" {
+			t.Errorf("next action = %q, want configure", report.NextAction)
+		}
+	})
+
+	t.Run("apply", func(t *testing.T) {
+		project := t.TempDir()
+		req := request(project, setup.Answers{
+			Host: "opencode", Docs: "docs", NoDecisions: true, Bundles: []string{"dev"},
+		})
+		req.LangSet = true
+		req.CLILanguage = "es"
+		if _, err := Create(req); err != nil {
+			t.Fatalf("Create() error = %v", err)
+		}
+		if err := os.Remove(filepath.Join(project, ".atlas", "manifest.json")); err != nil {
+			t.Fatalf("Remove(manifest) error = %v", err)
+		}
+		report, err := Doctor(DoctorRequest{Project: project, Getenv: emptyEnv})
+		if err != nil {
+			t.Fatalf("Doctor() error = %v", err)
+		}
+		if report.NextAction != "apply" {
+			t.Errorf("next action = %q, want apply", report.NextAction)
+		}
+	})
+
+	t.Run("none", func(t *testing.T) {
+		project := t.TempDir()
+		req := request(project, setup.Answers{
+			Host: "opencode", Docs: "docs", NoDecisions: true, Bundles: []string{"dev"},
+		})
+		req.LangSet = true
+		req.CLILanguage = "es"
+		if _, err := Create(req); err != nil {
+			t.Fatalf("Create() error = %v", err)
+		}
+		report, err := Doctor(DoctorRequest{Project: project, Getenv: emptyEnv})
+		if err != nil {
+			t.Fatalf("Doctor() error = %v", err)
+		}
+		if report.NextAction != "none" {
+			t.Errorf("next action = %q, want none", report.NextAction)
+		}
+	})
+}
+
+func TestDoctorDoesNotWrite(t *testing.T) {
+	project := t.TempDir()
+	if _, err := Create(request(project, setup.Answers{Host: "opencode"})); err != nil {
+		t.Fatalf("Create() error = %v", err)
+	}
+	statePath := filepath.Join(project, ".atlas", "state.json")
+	manifestPath := filepath.Join(project, ".atlas", "manifest.json")
+	stateBefore, err := os.ReadFile(statePath)
+	if err != nil {
+		t.Fatalf("ReadFile(state) error = %v", err)
+	}
+	manifestBefore, err := os.ReadFile(manifestPath)
+	if err != nil {
+		t.Fatalf("ReadFile(manifest) error = %v", err)
+	}
+
+	if _, err := Doctor(DoctorRequest{Project: project, Getenv: emptyEnv}); err != nil {
+		t.Fatalf("Doctor() error = %v", err)
+	}
+	stateAfter, err := os.ReadFile(statePath)
+	if err != nil {
+		t.Fatalf("ReadFile(state) after doctor error = %v", err)
+	}
+	if string(stateBefore) != string(stateAfter) {
+		t.Error("doctor changed the state")
+	}
+	manifestAfter, err := os.ReadFile(manifestPath)
+	if err != nil {
+		t.Fatalf("ReadFile(manifest) after doctor error = %v", err)
+	}
+	if string(manifestBefore) != string(manifestAfter) {
+		t.Error("doctor changed the manifest")
+	}
+}
+
+func TestDoctorWithoutState(t *testing.T) {
+	if _, err := Doctor(DoctorRequest{Project: t.TempDir(), Getenv: emptyEnv}); !errors.Is(err, ErrNotConfigured) {
+		t.Errorf("Doctor() error = %v, want ErrNotConfigured", err)
+	}
+}
+
+func TestDoctorReportsInvalidLayoutInsteadOfFailing(t *testing.T) {
+	project := t.TempDir()
+	if _, err := Create(request(project, setup.Answers{Host: "opencode"})); err != nil {
+		t.Fatalf("Create() error = %v", err)
+	}
+	written := readState(t, project)
+	written.Layout.Docs = "../escape"
+	if err := state.Save(filepath.Join(project, ".atlas", "state.json"), written); err != nil {
+		t.Fatalf("state.Save() error = %v", err)
+	}
+
+	report, err := Doctor(DoctorRequest{Project: project, Getenv: emptyEnv})
+	if err != nil {
+		t.Fatalf("Doctor() error = %v", err)
+	}
+	if report.LayoutError == "" {
+		t.Error("layout error = empty, want the invalid layout reported")
+	}
+	if report.NextAction != "review" {
+		t.Errorf("next action = %q, want review", report.NextAction)
+	}
+}

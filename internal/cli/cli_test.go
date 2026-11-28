@@ -112,7 +112,7 @@ func TestHelpPrintsUsageAndSucceeds(t *testing.T) {
 }
 
 func TestKnownCommandIsNotImplementedYet(t *testing.T) {
-	stdout, stderr, code := run([]string{"doctor"}, nil)
+	stdout, stderr, code := run([]string{"profile"}, nil)
 
 	if code != ExitError {
 		t.Errorf("exit code = %d, want %d", code, ExitError)
@@ -120,7 +120,7 @@ func TestKnownCommandIsNotImplementedYet(t *testing.T) {
 	if stdout != "" {
 		t.Errorf("stdout = %q, want empty", stdout)
 	}
-	if want := message(i18n.English, MsgNotImplemented, map[string]string{"command": "doctor"}); stderr != want {
+	if want := message(i18n.English, MsgNotImplemented, map[string]string{"command": "profile"}); stderr != want {
 		t.Errorf("stderr = %q, want %q", stderr, want)
 	}
 }

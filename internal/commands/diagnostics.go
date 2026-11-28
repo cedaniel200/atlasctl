@@ -4,11 +4,13 @@ import (
 	"errors"
 	"io/fs"
 	"os"
+	"os/exec"
 	"path/filepath"
 
 	"github.com/cedaniel200/atlasctl/internal/classify"
 	"github.com/cedaniel200/atlasctl/internal/fsutil"
 	"github.com/cedaniel200/atlasctl/internal/hooks"
+	"github.com/cedaniel200/atlasctl/internal/host"
 	"github.com/cedaniel200/atlasctl/internal/setup"
 	"github.com/cedaniel200/atlasctl/internal/spec"
 	"github.com/cedaniel200/atlasctl/internal/state"
@@ -41,10 +43,15 @@ type FileStatus struct {
 	Executable bool
 }
 
-// SpecStatus reports the resolved specification adapter.
+// SpecStatus reports the resolved specification adapter. Doctor also fills the
+// external CLI fields.
 type SpecStatus struct {
-	ID   string
-	Root string
+	ID            string
+	Root          string
+	Error         string
+	CLIApplicable bool
+	CLIPath       string
+	CLIFound      bool
 }
 
 // CheckReport is the read-only inspection of an adopted project.
@@ -190,4 +197,128 @@ func joinValues(values []string) string {
 		result += value
 	}
 	return result
+}
+
+// DoctorRequest is the input of a diagnostic report.
+type DoctorRequest struct {
+	Project string
+	Getenv  func(string) string
+}
+
+// HostEvidence is one host's detection signals and evidence paths.
+type HostEvidence struct {
+	ID           string
+	Verification host.Verification
+	Signals      []string
+	Paths        []string
+}
+
+// DoctorReport is the read-only diagnostic of an adopted project.
+type DoctorReport struct {
+	State                  *state.State
+	Manifest               *state.Manifest
+	Host                   state.Host
+	Resolution             host.Resolution
+	ResolutionVerification host.Verification
+	Hosts                  []HostEvidence
+	Hooks                  hooks.Report
+	Spec                   SpecStatus
+	Layout                 spec.Layout
+	LayoutError            string
+	Setup                  state.Setup
+	Profile                string
+	NextAction             string
+}
+
+// Doctor inspects the host, hooks, specification adapter, layout and versions
+// without writing. A declaration that cannot be resolved is reported in the
+// report instead of stopping the diagnosis.
+func Doctor(request DoctorRequest) (DoctorReport, error) {
+	if request.Project == "" {
+		return DoctorReport{}, errors.New("commands: project root is required")
+	}
+	existing, manifest, err := loadExisting(request.Project)
+	if err != nil {
+		return DoctorReport{}, err
+	}
+	if existing == nil {
+		return DoctorReport{}, ErrNotConfigured
+	}
+
+	report := DoctorReport{
+		State:    existing,
+		Manifest: manifest,
+		Host:     existing.Host,
+		Setup:    existing.Setup,
+		Profile:  existing.Profile,
+	}
+
+	resolution, err := host.Resolve(request.Project, "", request.Getenv)
+	if err != nil {
+		return DoctorReport{}, err
+	}
+	report.Resolution = resolution
+	for _, strategy := range host.All() {
+		evidence, _ := strategy.Detect(request.Project, request.Getenv)
+		report.Hosts = append(report.Hosts, HostEvidence{
+			ID:           strategy.ID(),
+			Verification: strategy.Verification(),
+			Signals:      evidence.Signals,
+			Paths:        evidence.Paths,
+		})
+		if strategy.ID() == resolution.Host {
+			report.ResolutionVerification = strategy.Verification()
+		}
+	}
+
+	report.Hooks, err = hooks.Status(request.Project)
+	if err != nil {
+		return DoctorReport{}, err
+	}
+
+	adapter, err := spec.Resolve(existing.SpecEngine, request.Project)
+	if err != nil {
+		report.Spec = SpecStatus{
+			ID:    existing.SpecEngine.ID,
+			Root:  existing.SpecEngine.Root,
+			Error: err.Error(),
+		}
+	} else {
+		report.Spec = SpecStatus{ID: adapter.ID(), Root: adapter.Root()}
+		if binary := spec.Binary(adapter); binary != "" {
+			report.Spec.CLIApplicable = true
+			if path, err := exec.LookPath(binary); err == nil {
+				report.Spec.CLIPath = path
+				report.Spec.CLIFound = true
+			}
+		}
+	}
+
+	layout, err := spec.ResolveLayout(existing.Layout)
+	if err != nil {
+		report.LayoutError = err.Error()
+	} else {
+		report.Layout = layout
+	}
+	report.NextAction = nextAction(report)
+	return report, nil
+}
+
+// nextAction recommends the next command without changing anything. A foreign
+// hooks path needs a human decision, not an automatic application.
+func nextAction(report DoctorReport) string {
+	switch {
+	case report.Spec.Error != "" || report.LayoutError != "":
+		return "review"
+	case report.Hooks.Repository && report.Hooks.PathState == hooks.PathForeign:
+		return "review"
+	case !report.Setup.Complete:
+		return "configure"
+	case report.Manifest == nil:
+		return "apply"
+	case report.Hooks.Repository && (!report.Hooks.Dispatcher || !report.Hooks.GuardsDir || report.Hooks.PathState != hooks.PathHarness):
+		return "apply"
+	default:
+		return "none"
+	}
 }
