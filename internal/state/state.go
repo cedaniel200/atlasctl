@@ -92,16 +92,39 @@ type Architecture struct {
 	Notes  string `json:"notes"`
 }
 
-// Load reads and decodes a state file.
+// Load reads and decodes a state file. A v1 state is mapped to the v2 shape
+// but keeps SchemaVersion at 1, so callers still require an explicit migration.
 func Load(path string) (*State, error) {
-	var value State
-	if err := loadJSON(path, &value); err != nil {
-		return nil, err
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, fmt.Errorf("read %s: %w", path, err)
 	}
-	if err := checkReadableSchema(value.SchemaVersion); err != nil {
+	var probe struct {
+		SchemaVersion int `json:"schema_version"`
+	}
+	if err := json.Unmarshal(data, &probe); err != nil {
+		return nil, fmt.Errorf("decode %s: %w", path, err)
+	}
+	if err := checkReadableSchema(probe.SchemaVersion); err != nil {
 		return nil, fmt.Errorf("%s: %w", path, err)
 	}
-	return &value, nil
+	if probe.SchemaVersion >= SchemaVersion {
+		var value State
+		if err := json.Unmarshal(data, &value); err != nil {
+			return nil, fmt.Errorf("decode %s: %w", path, err)
+		}
+		return &value, nil
+	}
+
+	var legacy legacyState
+	if err := json.Unmarshal(data, &legacy); err != nil {
+		return nil, fmt.Errorf("decode %s as schema v1: %w", path, err)
+	}
+	value, err := legacy.toState()
+	if err != nil {
+		return nil, fmt.Errorf("%s: %w", path, err)
+	}
+	return value, nil
 }
 
 // Save encodes and writes a state file.
@@ -131,17 +154,6 @@ func nonNil(values []string) []string {
 		return []string{}
 	}
 	return values
-}
-
-func loadJSON(path string, target any) error {
-	data, err := os.ReadFile(path)
-	if err != nil {
-		return fmt.Errorf("read %s: %w", path, err)
-	}
-	if err := json.Unmarshal(data, target); err != nil {
-		return fmt.Errorf("decode %s: %w", path, err)
-	}
-	return nil
 }
 
 func saveJSON(path string, value any) error {

@@ -1,0 +1,60 @@
+{
+  "bootstrap_version": 1,
+  "template_version": "0.4.0",
+  "template_source": {
+    "url": "https://github.com/cedaniel200/atlas-dev.git",
+    "commit": "11f4d4faa70491589a58770338b0f05a391757ab"
+  },
+  "status": "configured",
+  "mode": "greenfield",
+  "host": "opencode",
+  "host_source": "env",
+  "language": {
+    "user": "es",
+    "agent": "en"
+  },
+  "architecture": {
+    "stance": "custom",
+    "notes": "Meta-workspace to develop and test the template; meta/tooling, agnostic, no business domain."
+  },
+  "profile": "node-scripts",
+  "stacks": [
+    {
+      "id": "node-scripts",
+      "profile": "node-scripts",
+      "paths": [
+        "."
+      ],
+      "packs": [],
+      "install": "N/A",
+      "build": "N/A",
+      "run": "N/A",
+      "test": "node --test .atlas/scripts/*.test.mjs",
+      "lint": "N/A",
+      "quality": "node .atlas/scripts/validar-contrato.mjs && node .atlas/scripts/validar-perfiles.mjs && node .atlas/scripts/validar-manifiesto.mjs"
+    }
+  ],
+  "packs": [],
+  "optional_agents": [],
+  "readme": "generated",
+  "preferences": {
+    "openspec_commands": "ask",
+    "orchestration": "orchestrated"
+  },
+  "quality": {
+    "crap_threshold": 6
+  },
+  "docs": {
+    "root": "docs",
+    "bilingual": false,
+    "functional": "docs/functional",
+    "architecture": "docs/architecture",
+    "api": "docs/api",
+    "guides": "docs/guides"
+  },
+  "phase": 3,
+  "displaced": [],
+  "override_reason": null,
+  "configured_at": "2026-10-22T23:45:35-05:00",
+  "updated_at": "2026-10-26T13:27:24.465Z"
+}
