@@ -341,3 +341,21 @@ func TestDoctorUnknownFlagIsUsage(t *testing.T) {
 		t.Errorf("stderr = %q, want %q", errOut, want)
 	}
 }
+
+func TestDoctorUnreadableStateIsError(t *testing.T) {
+	project := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(project, ".atlas"), 0o755); err != nil {
+		t.Fatalf("MkdirAll(.atlas) error = %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(project, ".atlas", "state.json"), []byte("{"), 0o644); err != nil {
+		t.Fatalf("WriteFile(state) error = %v", err)
+	}
+
+	_, errOut, code := runProject(t, project, "doctor")
+	if code != ExitError {
+		t.Errorf("exit code = %d, want %d", code, ExitError)
+	}
+	if errOut == "" {
+		t.Error("stderr is empty, want the inspection error")
+	}
+}
