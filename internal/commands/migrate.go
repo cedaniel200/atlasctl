@@ -8,8 +8,11 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"sort"
+	"strings"
 	"time"
 
+	"github.com/cedaniel200/atlasctl/internal/bundle"
 	"github.com/cedaniel200/atlasctl/internal/content"
 	"github.com/cedaniel200/atlasctl/internal/fsutil"
 	"github.com/cedaniel200/atlasctl/internal/hooks"
@@ -27,13 +30,17 @@ var ErrMigrationCancelled = errors.New("commands: migration cancelled")
 
 // MigratePlan is what the human confirms before any write.
 type MigratePlan struct {
-	Files int
+	Files     int
+	Scripts   int
+	RemoveNew []string
+	KeepNew   []string
 }
 
 // MigrateRequest is the input of a v1 to v2 migration.
 type MigrateRequest struct {
-	Project string
-	Confirm func(MigratePlan) (bool, error)
+	Project  string
+	Snapshot string
+	Confirm  func(MigratePlan) (bool, error)
 }
 
 // MigrateResult is the outcome of a migration.
@@ -98,8 +105,18 @@ func Migrate(request MigrateRequest) (MigrateResult, error) {
 		return MigrateResult{}, migrationError(err)
 	}
 
-	plan := MigratePlan{Files: len(loadedManifest.Files)}
-	translatedState, translatedManifest, dispatcher := translateMigration(request.Project, loadedState, loadedManifest)
+	files := len(loadedManifest.Files)
+	translatedState, translatedManifest, dispatcher, scripts := translateMigration(request.Project, loadedState, loadedManifest)
+	removeNew, keepNew, err := planNewFiles(request.Project, request.Snapshot)
+	if err != nil {
+		return MigrateResult{}, migrationError(err)
+	}
+	plan := MigratePlan{
+		Files:     files,
+		Scripts:   scripts,
+		RemoveNew: removeNew,
+		KeepNew:   keepNew,
+	}
 	dispatcherState, err := inspectDispatcher(request.Project, dispatcher)
 	if err != nil {
 		return MigrateResult{}, migrationError(err)
@@ -143,12 +160,21 @@ func Migrate(request MigrateRequest) (MigrateResult, error) {
 		return MigrateResult{}, migrationError(err)
 	}
 
-	return MigrateResult{
+	result := MigrateResult{
 		BackupDir: backupDir,
 		Plan:      plan,
 		State:     translatedState,
 		Manifest:  translatedManifest,
-	}, nil
+	}
+	removed := make([]string, 0, len(plan.RemoveNew))
+	for _, relative := range plan.RemoveNew {
+		if err := fsutil.RemoveProjectFile(request.Project, relative); err != nil {
+			return result, fmt.Errorf("commands: migrated, but could not remove %q: %w", relative, err)
+		}
+		removed = append(removed, relative)
+	}
+	result.Plan.RemoveNew = removed
+	return result, nil
 }
 
 func migrationError(err error) error {
@@ -193,7 +219,7 @@ func validSHA256(value string) bool {
 	return err == nil
 }
 
-func translateMigration(project string, loadedState *state.State, loadedManifest *state.Manifest) (*state.State, *state.Manifest, []byte) {
+func translateMigration(project string, loadedState *state.State, loadedManifest *state.Manifest) (*state.State, *state.Manifest, []byte, int) {
 	translatedState := *loadedState
 	translatedState.SchemaVersion = state.SchemaVersion
 	translatedState.EngineVersion = EngineVersion
@@ -210,6 +236,16 @@ func translateMigration(project string, loadedState *state.State, loadedManifest
 	translatedManifest.EngineVersion = EngineVersion
 	translatedManifest.GeneratedAt = time.Now().UTC()
 	translatedManifest.Bundles = []string{setup.DefaultBundle}
+	scripts := 0
+	for path := range translatedManifest.Files {
+		if !strings.HasPrefix(path, ".atlas/scripts/") {
+			continue
+		}
+		entry := translatedManifest.Files[path]
+		entry.Layer = state.LayerOwned
+		translatedManifest.Files[path] = entry
+		scripts++
+	}
 	dispatcher := hooks.Script(translatedState.SpecEngine.Root)
 	translatedManifest.Files[hooks.DispatcherPath] = state.ManifestFile{
 		Bundle: setup.DefaultBundle,
@@ -217,7 +253,85 @@ func translateMigration(project string, loadedState *state.State, loadedManifest
 		Layer:  state.LayerGenerated,
 		SHA256: content.Checksum(dispatcher),
 	}
-	return &translatedState, &translatedManifest, dispatcher
+	return &translatedState, &translatedManifest, dispatcher, scripts
+}
+
+// planNewFiles finds every .new file in the project and compares it with the
+// incoming snapshot. Only a byte-equal (LF-normalized) copy is scheduled for
+// deletion; anything that cannot be compared is kept.
+func planNewFiles(project, snapshotPath string) ([]string, []string, error) {
+	candidates, err := findNewFiles(project)
+	if err != nil {
+		return nil, nil, err
+	}
+	if len(candidates) == 0 {
+		return nil, nil, nil
+	}
+	snapshot, err := bundle.Load(snapshotPath)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	var remove, keep []string
+	for _, relative := range candidates {
+		basePath := strings.TrimSuffix(relative, ".new")
+		file, ok := snapshot.Read(setup.DefaultBundle, basePath)
+		if !ok {
+			keep = append(keep, relative)
+			continue
+		}
+		absolute, err := fsutil.SafeJoin(project, relative)
+		if err != nil {
+			return nil, nil, err
+		}
+		info, err := os.Lstat(absolute)
+		if err != nil || !info.Mode().IsRegular() {
+			keep = append(keep, relative)
+			continue
+		}
+		data, err := os.ReadFile(absolute)
+		if err != nil {
+			keep = append(keep, relative)
+			continue
+		}
+		if content.Checksum(file.Data) == content.Checksum(data) {
+			remove = append(remove, relative)
+		} else {
+			keep = append(keep, relative)
+		}
+	}
+	sort.Strings(remove)
+	sort.Strings(keep)
+	return remove, keep, nil
+}
+
+func findNewFiles(project string) ([]string, error) {
+	var found []string
+	err := filepath.WalkDir(project, func(path string, entry fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		relative, err := filepath.Rel(project, path)
+		if err != nil {
+			return err
+		}
+		relative = filepath.ToSlash(relative)
+		if entry.IsDir() {
+			if entry.Name() == ".git" || relative == ".atlas/backups" {
+				return fs.SkipDir
+			}
+			return nil
+		}
+		if strings.HasSuffix(relative, ".new") {
+			found = append(found, relative)
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	sort.Strings(found)
+	return found, nil
 }
 
 func migrationSetup(value state.State) state.Setup {
