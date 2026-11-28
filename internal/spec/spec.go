@@ -37,3 +37,13 @@ func Resolve(engine state.SpecEngine, project string) (Adapter, error) {
 		)
 	}
 }
+
+// Binary returns the external CLI an adapter delegates to, or the empty string
+// when the adapter needs none. Doctor uses it to report availability without
+// executing anything.
+func Binary(adapter Adapter) string {
+	if adapter.ID() == openSpecID {
+		return "openspec"
+	}
+	return ""
+}
