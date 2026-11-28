@@ -58,6 +58,9 @@ func SafeJoin(root, rel string) (string, error) {
 // symbolic link. A missing component ends the check: nothing below it exists,
 // so there is nothing to follow.
 func CheckNoSymlinks(root, rel string) error {
+	if root == "" {
+		return errors.New("empty project root")
+	}
 	if err := ValidateRelative(rel); err != nil {
 		return err
 	}
