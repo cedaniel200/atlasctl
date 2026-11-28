@@ -7,7 +7,7 @@ import (
 
 // registry is the only list of supported hosts. Adding a host is adding its
 // strategy here.
-var registry = []Strategy{opencode{}, claude{}}
+var registry = []Strategy{opencode{}, claude{}, cursor{}, codex{}}
 
 // All returns the registered strategies in declaration order.
 func All() []Strategy {

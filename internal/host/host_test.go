@@ -71,7 +71,7 @@ func artifactsByPath(t *testing.T, artifacts []plan.Generated) map[string]plan.G
 }
 
 func TestRegistry(t *testing.T) {
-	wantIDs := []string{"opencode", "claude"}
+	wantIDs := []string{"opencode", "claude", "cursor", "codex"}
 	if got := IDs(); !reflect.DeepEqual(got, wantIDs) {
 		t.Errorf("IDs() = %v, want %v", got, wantIDs)
 	}
@@ -102,9 +102,9 @@ func TestRegistry(t *testing.T) {
 		t.Error("All() exposed the registry slice")
 	}
 
-	if _, err := Lookup("cursor"); err == nil {
-		t.Error("Lookup(cursor) error = nil, want an unsupported host error")
-	} else if !strings.Contains(err.Error(), "cursor") || !strings.Contains(err.Error(), "opencode") || !strings.Contains(err.Error(), "claude") {
+	if _, err := Lookup("unknown"); err == nil {
+		t.Error("Lookup(unknown) error = nil, want an unsupported host error")
+	} else if !strings.Contains(err.Error(), "unknown") || !strings.Contains(err.Error(), "opencode") {
 		t.Errorf("Lookup error = %q, want the requested id and the supported hosts", err)
 	}
 }
@@ -138,6 +138,27 @@ func TestCapabilitiesAndRoutes(t *testing.T) {
 			},
 			routes:  []string{".claude/agents", ".claude/commands", ".mcp.json", "AGENTS.md", "CLAUDE.md"},
 			configs: []string{".mcp.json"},
+			legacy:  nil,
+		},
+		{
+			name:     "cursor",
+			strategy: cursor{},
+			caps: Capabilities{
+				Subagents: true, AgentsDir: ".cursor/agents", CommandsDir: ".cursor/commands",
+				StartupFile: "AGENTS.md", MCPFile: ".cursor/mcp.json",
+			},
+			routes:  []string{".cursor/agents", ".cursor/commands", ".cursor/mcp.json", "AGENTS.md"},
+			configs: []string{".cursor/mcp.json"},
+			legacy:  nil,
+		},
+		{
+			name:     "codex",
+			strategy: codex{},
+			caps: Capabilities{
+				Subagents: false, StartupFile: "AGENTS.md",
+			},
+			routes:  []string{"AGENTS.md"},
+			configs: nil,
 			legacy:  nil,
 		},
 	}
