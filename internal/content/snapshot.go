@@ -28,11 +28,15 @@ var (
 	embeddedErr    error
 )
 
-// Bundle describes a content bundle and the bundles it depends on.
+// Bundle describes a content bundle and the bundles it depends on. Roles and
+// Commands are bundle-relative directories with source material: host adapters
+// are generated from them, so they are never published as project files.
 type Bundle struct {
 	ID       string   `json:"id"`
 	Version  string   `json:"version"`
 	Requires []string `json:"requires"`
+	Roles    string   `json:"roles,omitempty"`
+	Commands string   `json:"commands,omitempty"`
 }
 
 // File is a file published by a bundle. Path is relative to the bundle root and

@@ -425,3 +425,34 @@ func TestBuildReportsConflictsBetweenBundles(t *testing.T) {
 		t.Errorf("README.md kind = %q, want %q", action.Kind, Create)
 	}
 }
+
+func TestBuildSkipsBundleSourceDirectories(t *testing.T) {
+	fsys := fstest.MapFS{
+		"dev/bundle.json":       {Data: []byte(`{"id":"dev","version":"0.6.0","requires":[],"roles":"roles","commands":"commands"}`)},
+		"dev/AGENTS.md":         {Data: []byte("contrato\n")},
+		"dev/roles/analyst.md":  {Data: []byte("# analyst\n")},
+		"dev/commands/apply.md": {Data: []byte("command\n")},
+	}
+	snapshot, err := content.Load(fsys)
+	if err != nil {
+		t.Fatalf("content.Load() error = %v", err)
+	}
+
+	planned := buildPlan(t, Request{
+		Snapshot: snapshot,
+		Manifest: manifestWith(nil),
+		Reader:   diskWith(nil),
+	})
+
+	if action := actionAt(t, planned, "AGENTS.md"); action.Kind != Create {
+		t.Errorf("AGENTS.md kind = %q, want %q", action.Kind, Create)
+	}
+	for _, source := range []string{"roles/analyst.md", "commands/apply.md"} {
+		if hasAction(planned, source) {
+			t.Errorf("%s was planned as project content", source)
+		}
+		if _, ok := planned.Manifest.Files[source]; ok {
+			t.Errorf("%s was recorded in the manifest", source)
+		}
+	}
+}

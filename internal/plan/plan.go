@@ -298,6 +298,7 @@ func decideOrphan(filePath string, entry state.ManifestFile, probe classify.File
 func desiredFiles(snapshot *content.Snapshot, generated []Generated) (map[string]desiredFile, []Conflict) {
 	desired := map[string]desiredFile{}
 	sources := map[string][]string{}
+	sourceOnly := bundleSourceFiles(snapshot)
 
 	add := func(file desiredFile, filePath string) {
 		if _, exists := desired[filePath]; exists {
@@ -308,6 +309,9 @@ func desiredFiles(snapshot *content.Snapshot, generated []Generated) (map[string
 		sources[filePath] = []string{file.bundle}
 	}
 	for _, file := range snapshot.Files() {
+		if sourceOnly[file.Ref()] {
+			continue
+		}
 		// The 0.6 snapshot carries no per-file origin; published content is
 		// recorded as core until the bundle descriptor can declare an origin.
 		add(desiredFile{
@@ -412,4 +416,25 @@ func (e exclusions) protects(filePath string) bool {
 		}
 	}
 	return false
+}
+
+// bundleSourceFiles returns the snapshot references that are source material
+// for the host renderers, not files to publish in the project.
+func bundleSourceFiles(snapshot *content.Snapshot) map[string]bool {
+	sourceOnly := map[string]bool{}
+	for _, bundle := range snapshot.Bundles() {
+		for _, directory := range []string{bundle.Roles, bundle.Commands} {
+			directory = strings.TrimSuffix(strings.TrimSpace(directory), "/")
+			if directory == "" {
+				continue
+			}
+			prefix := directory + "/"
+			for _, file := range snapshot.Files() {
+				if file.Bundle == bundle.ID && strings.HasPrefix(file.Path, prefix) {
+					sourceOnly[file.Ref()] = true
+				}
+			}
+		}
+	}
+	return sourceOnly
 }
