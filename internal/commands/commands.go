@@ -46,15 +46,48 @@ type Request struct {
 
 // Result is the outcome of the command.
 type Result struct {
-	State    state.State
-	Pending  []string
-	Complete bool
-	Report   *apply.Report
-	Hooks    hooks.Report
+	State          state.State
+	Pending        []string
+	Complete       bool
+	AlreadyAdopted bool
+	Report         *apply.Report
+	Hooks          hooks.Report
 }
 
 // Create resolves the initial configuration and materializes the minimum.
 func Create(request Request) (Result, error) {
+	return run(request)
+}
+
+// Adopt adds the harness to an existing project without moving its files. An
+// already adopted project is reported, not failed: the human can use configure
+// or apply.
+func Adopt(request Request) (Result, error) {
+	existing, err := loadState(filepath.Join(request.Project, ".atlas", "state.json"))
+	if err != nil {
+		return Result{}, err
+	}
+	if existing != nil {
+		return Result{
+			State:          *existing,
+			Pending:        existing.Setup.Pending,
+			Complete:       existing.Setup.Complete,
+			AlreadyAdopted: true,
+		}, nil
+	}
+	return run(request)
+}
+
+// Configure updates an adopted project without rewriting owned or override
+// content: it reuses the same pipeline, whose plan is idempotent.
+func Configure(request Request) (Result, error) {
+	existing, err := loadState(filepath.Join(request.Project, ".atlas", "state.json"))
+	if err != nil {
+		return Result{}, err
+	}
+	if existing == nil {
+		return Result{}, errors.New("commands: project is not configured; run create or adopt first")
+	}
 	return run(request)
 }
 
@@ -66,6 +99,13 @@ func run(request Request) (Result, error) {
 	existing, manifest, err := loadExisting(request.Project)
 	if err != nil {
 		return Result{}, err
+	}
+	var previous host.Strategy
+	if existing != nil && existing.Host.ID != "" {
+		previous, err = host.Lookup(existing.Host.ID)
+		if err != nil {
+			return Result{}, err
+		}
 	}
 
 	resolved, err := setup.Resolve(setup.Request{
@@ -110,13 +150,11 @@ func run(request Request) (Result, error) {
 		}
 	}
 
+	transition := host.Transition(previous, resolved.Strategy)
 	allowed := append([]string(nil), contentRoutes...)
-	var removeDirs, hostConfig []string
-	if resolved.Strategy != nil {
-		allowed = append(allowed, resolved.Strategy.AllowedRoutes()...)
-		removeDirs = resolved.Strategy.LegacyDirs()
-		hostConfig = resolved.Strategy.ConfigFiles()
-	}
+	allowed = append(allowed, transition.Allowed...)
+	removeDirs := transition.LegacyDirs
+	hostConfig := transition.ConfigFiles
 
 	if manifest == nil {
 		manifest = &state.Manifest{SchemaVersion: state.SchemaVersion}
@@ -147,9 +185,13 @@ func run(request Request) (Result, error) {
 		return Result{}, err
 	}
 
-	hookReport, err := hooks.Install(request.Project, hooks.Options{SpecEngineRoot: resolved.State.SpecEngine.Root})
-	if err != nil {
-		return Result{}, err
+	reinstallHooks := existing == nil || existing.SpecEngine.Root != resolved.State.SpecEngine.Root || !existing.Hooks.Installed
+	hookReport := hooks.Report{}
+	if reinstallHooks {
+		hookReport, err = hooks.Install(request.Project, hooks.Options{SpecEngineRoot: resolved.State.SpecEngine.Root})
+		if err != nil {
+			return Result{}, err
+		}
 	}
 
 	st := resolved.State
@@ -158,7 +200,11 @@ func run(request Request) (Result, error) {
 	st.Bundles = selection.IDs
 	st.Content.BundleVersion = primaryVersion(selection.Snapshot)
 	st.Layout = layoutState(layout)
-	st.Hooks.Installed = hookReport.Active
+	if reinstallHooks {
+		st.Hooks.Installed = hookReport.Active
+	} else {
+		st.Hooks.Installed = existing.Hooks.Installed
+	}
 	if st.MaxParallel == "" {
 		st.MaxParallel = state.MaxParallelAuto
 	}
