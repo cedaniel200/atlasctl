@@ -23,9 +23,9 @@ import (
 	"github.com/cedaniel200/atlasctl/internal/state"
 )
 
-// EngineVersion is the version recorded by this build. Distribution replaces
-// it at release time.
-const EngineVersion = "0.6.0"
+// EngineVersion is the version recorded by this build. Distribution injects it
+// with -ldflags -X at release time; the default keeps local builds usable.
+var EngineVersion = "0.6.0"
 
 // ErrNotConfigured reports a command that needs an adopted project.
 var ErrNotConfigured = errors.New("commands: project is not configured; run create or adopt first")

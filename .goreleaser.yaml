@@ -1,0 +1,43 @@
+version: 2
+
+project_name: atlasctl
+
+builds:
+  - id: atlasctl
+    main: ./cmd/atlasctl
+    binary: atlasctl
+    env:
+      - CGO_ENABLED=0
+    flags:
+      - -trimpath
+    goos:
+      - darwin
+      - linux
+      - windows
+    goarch:
+      - amd64
+      - arm64
+    ignore:
+      - goos: windows
+        goarch: arm64
+    ldflags:
+      - -s -w
+      - -X github.com/cedaniel200/atlasctl/internal/commands.EngineVersion={{ .Version }}
+
+archives:
+  - id: atlasctl
+    formats:
+      - tar.gz
+    name_template: "atlasctl_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    format_overrides:
+      - goos: windows
+        formats:
+          - zip
+
+checksum:
+  name_template: SHA256SUMS
+  algorithm: sha256
+
+# windows/amd64 is experimental: it is configured but not verified locally.
+#
+# brews stays disabled until the tap repository exists (13.2).

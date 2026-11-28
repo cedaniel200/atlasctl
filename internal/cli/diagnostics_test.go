@@ -178,6 +178,7 @@ func TestDoctorViaCLI(t *testing.T) {
 		args map[string]string
 	}{
 		{MsgDoctorTitle, nil},
+		{MsgDoctorBinary, map[string]string{"version": commands.EngineVersion}},
 		{MsgDoctorState, map[string]string{"schema": "2", "engine": commands.EngineVersion}},
 		{MsgDoctorHost, map[string]string{"id": "opencode", "source": catalog.T("doctor.source.flag", nil)}},
 		{MsgDoctorSpecNone, nil},

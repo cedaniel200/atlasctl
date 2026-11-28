@@ -34,6 +34,9 @@ func runDoctor(options options, env Env, catalog i18n.Catalog) int {
 	}
 
 	fmt.Fprintln(env.Stdout, catalog.T(MsgDoctorTitle, nil))
+	fmt.Fprintln(env.Stdout, catalog.T(MsgDoctorBinary, map[string]string{
+		"version": commands.EngineVersion,
+	}))
 	fmt.Fprintln(env.Stdout, catalog.T(MsgDoctorState, map[string]string{
 		"schema": strconv.Itoa(report.State.SchemaVersion),
 		"engine": valueOrNone(catalog, report.State.EngineVersion),

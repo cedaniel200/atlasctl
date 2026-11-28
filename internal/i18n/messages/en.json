@@ -113,5 +113,6 @@
   "migrate.failed": "Could not migrate: {error}",
   "migrate.scripts": "Owned scripts: {count}.",
   "migrate.new_removed": "Removed .new files: {paths}.",
-  "migrate.new_kept": "Divergent .new files kept: {paths}."
+  "migrate.new_kept": "Divergent .new files kept: {paths}.",
+  "doctor.binary": "Binary: {version}."
 }
