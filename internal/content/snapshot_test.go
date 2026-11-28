@@ -34,11 +34,11 @@ func TestEmbeddedSnapshotReadsFileWithPathAndHash(t *testing.T) {
 		t.Fatalf("Embedded() error = %v", err)
 	}
 
-	file, ok := snapshot.Read("dev", "README.md")
+	file, ok := snapshot.Read("dev", "AGENTS.md")
 	if !ok {
-		t.Fatal("dev/README.md not found in embedded snapshot")
+		t.Fatal("dev/AGENTS.md not found in embedded snapshot")
 	}
-	if got, want := file.Ref(), "dev/README.md"; got != want {
+	if got, want := file.Ref(), "dev/AGENTS.md"; got != want {
 		t.Errorf("file ref = %q, want %q", got, want)
 	}
 	if len(file.Data) == 0 {
