@@ -88,11 +88,17 @@ func Load(path string) (*State, error) {
 	if err := loadJSON(path, &value); err != nil {
 		return nil, err
 	}
+	if err := checkReadableSchema(value.SchemaVersion); err != nil {
+		return nil, fmt.Errorf("%s: %w", path, err)
+	}
 	return &value, nil
 }
 
 // Save encodes and writes a state file.
 func Save(path string, value *State) error {
+	if err := requireWritableSchema(value.SchemaVersion); err != nil {
+		return err
+	}
 	return saveJSON(path, value.normalized())
 }
 

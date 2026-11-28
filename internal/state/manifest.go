@@ -1,6 +1,9 @@
 package state
 
-import "time"
+import (
+	"fmt"
+	"time"
+)
 
 // Layer is the ownership layer of a managed file. A file is only ever owned by
 // one layer.
@@ -44,11 +47,17 @@ func LoadManifest(path string) (*Manifest, error) {
 	if err := loadJSON(path, &value); err != nil {
 		return nil, err
 	}
+	if err := checkReadableSchema(value.SchemaVersion); err != nil {
+		return nil, fmt.Errorf("%s: %w", path, err)
+	}
 	return &value, nil
 }
 
 // SaveManifest encodes and writes a manifest file.
 func SaveManifest(path string, value *Manifest) error {
+	if err := requireWritableSchema(value.SchemaVersion); err != nil {
+		return err
+	}
 	return saveJSON(path, value.normalized())
 }
 
