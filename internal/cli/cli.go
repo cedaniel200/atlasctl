@@ -76,7 +76,8 @@ func Run(args []string, env Env) int {
 		return ExitOK
 	}
 
-	if options.command == "create" {
+	switch options.command {
+	case "create", "adopt", "configure":
 		return runSetup(options, env, catalog)
 	}
 

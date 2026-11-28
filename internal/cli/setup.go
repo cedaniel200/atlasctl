@@ -35,13 +35,32 @@ func runSetup(options options, env Env, catalog i18n.Catalog) int {
 		LangSet:     options.lang != "",
 	}
 
-	result, err := commands.Create(request)
+	var result commands.Result
+	var err error
+	switch options.command {
+	case "create":
+		result, err = commands.Create(request)
+	case "adopt":
+		result, err = commands.Adopt(request)
+	case "configure":
+		result, err = commands.Configure(request)
+	}
 	if err != nil {
 		fmt.Fprintln(env.Stderr, catalog.T(MsgSetupFailed, map[string]string{"error": err.Error()}))
 		return ExitError
 	}
-
-	fmt.Fprintln(env.Stdout, catalog.T(MsgSetupCreated, nil))
+	if result.AlreadyAdopted {
+		fmt.Fprintln(env.Stdout, catalog.T(MsgSetupAlreadyAdopted, nil))
+		return ExitOK
+	}
+	switch options.command {
+	case "create":
+		fmt.Fprintln(env.Stdout, catalog.T(MsgSetupCreated, nil))
+	case "adopt":
+		fmt.Fprintln(env.Stdout, catalog.T(MsgSetupAdopted, nil))
+	case "configure":
+		fmt.Fprintln(env.Stdout, catalog.T(MsgSetupConfigured, nil))
+	}
 	if result.Report != nil {
 		fmt.Fprintln(env.Stdout, catalog.T(MsgSetupReport, map[string]string{
 			"updated":   strconv.Itoa(len(result.Report.Updated)),
