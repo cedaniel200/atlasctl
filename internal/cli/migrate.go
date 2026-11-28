@@ -15,7 +15,7 @@ import (
 // completed migration, an already migrated project or a cancelled one; 1 when
 // the migration cannot proceed and 2 for usage or a missing --yes.
 func runMigrate(options options, env Env, catalog i18n.Catalog) int {
-	yes, usageErr := parseMigrateArgs(options.args)
+	yes, snapshot, usageErr := parseMigrateArgs(options.args)
 	if usageErr != nil {
 		return reportUsageError(catalog, env.Stderr, usageErr)
 	}
@@ -38,8 +38,9 @@ func runMigrate(options options, env Env, catalog i18n.Catalog) int {
 	}
 
 	result, err := commands.Migrate(commands.MigrateRequest{
-		Project: env.Project,
-		Confirm: confirm,
+		Project:  env.Project,
+		Snapshot: snapshot,
+		Confirm:  confirm,
 	})
 	if err != nil {
 		switch {
@@ -60,25 +61,52 @@ func runMigrate(options options, env Env, catalog i18n.Catalog) int {
 	}
 
 	fmt.Fprintln(env.Stdout, catalog.T(MsgMigrateDone, map[string]string{"backup": result.BackupDir}))
-	fmt.Fprintln(env.Stdout, catalog.T(MsgMigrateDeferred, nil))
+	if result.Plan.Scripts > 0 {
+		fmt.Fprintln(env.Stdout, catalog.T(MsgMigrateScripts, map[string]string{
+			"count": strconv.Itoa(result.Plan.Scripts),
+		}))
+	}
+	if len(result.Plan.RemoveNew) > 0 {
+		fmt.Fprintln(env.Stdout, catalog.T(MsgMigrateNewRemoved, map[string]string{
+			"paths": strings.Join(result.Plan.RemoveNew, ", "),
+		}))
+	}
+	if len(result.Plan.KeepNew) > 0 {
+		fmt.Fprintln(env.Stdout, catalog.T(MsgMigrateNewKept, map[string]string{
+			"paths": strings.Join(result.Plan.KeepNew, ", "),
+		}))
+	}
 	return ExitOK
 }
 
 func printMigratePlan(catalog i18n.Catalog, env Env, plan commands.MigratePlan) {
 	fmt.Fprintln(env.Stdout, catalog.T(MsgMigratePlan, map[string]string{
-		"files": strconv.Itoa(plan.Files),
+		"files":   strconv.Itoa(plan.Files),
+		"scripts": strconv.Itoa(plan.Scripts),
+		"remove":  strconv.Itoa(len(plan.RemoveNew)),
+		"keep":    strconv.Itoa(len(plan.KeepNew)),
 	}))
 }
 
-func parseMigrateArgs(args []string) (bool, *usageError) {
+func parseMigrateArgs(args []string) (bool, string, *usageError) {
 	yes := false
-	for _, arg := range args {
-		if arg != "--yes" {
-			return false, &usageError{id: MsgUnknownFlag, args: map[string]string{"flag": arg}}
+	snapshot := ""
+	for index := 0; index < len(args); index++ {
+		arg := args[index]
+		switch {
+		case arg == "--yes":
+			yes = true
+		case matchesFlag(arg, "--snapshot"):
+			value, next, err := flagValue(args, index, "--snapshot")
+			if err != nil {
+				return false, "", err
+			}
+			snapshot, index = value, next
+		default:
+			return false, "", &usageError{id: MsgUnknownFlag, args: map[string]string{"flag": arg}}
 		}
-		yes = true
 	}
-	return yes, nil
+	return yes, snapshot, nil
 }
 
 func isAffirmative(answer string) bool {

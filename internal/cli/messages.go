@@ -98,5 +98,7 @@ const (
 	MsgMigrateConfirmationRequired = "migrate.confirmation_required"
 	MsgMigrateCancelled            = "migrate.cancelled"
 	MsgMigrateFailed               = "migrate.failed"
-	MsgMigrateDeferred             = "migrate.deferred"
+	MsgMigrateScripts              = "migrate.scripts"
+	MsgMigrateNewRemoved           = "migrate.new_removed"
+	MsgMigrateNewKept              = "migrate.new_kept"
 )

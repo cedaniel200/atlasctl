@@ -65,8 +65,11 @@ func TestMigrateWorkshopV1(t *testing.T) {
 	if _, ok := manifest.Files[hooks.DispatcherPath]; !ok {
 		t.Errorf("manifest has no dispatcher entry")
 	}
-	if entry := manifest.Files[".atlas/scripts/actualizar-arnes.mjs"]; entry.Layer != state.LayerBase {
-		t.Errorf("script layer = %q, want base until the scripts piece", entry.Layer)
+	if entry := manifest.Files[".atlas/scripts/actualizar-arnes.mjs"]; entry.Layer != state.LayerOwned {
+		t.Errorf("script layer = %q, want owned", entry.Layer)
+	}
+	if result.Plan.Scripts != 29 {
+		t.Errorf("scripts = %d, want the 29 v1 script entries", result.Plan.Scripts)
 	}
 	if entry := manifest.Files[".agents/skills/README.md"]; entry.Layer != state.LayerBase || entry.Bundle != "dev" {
 		t.Errorf("managed skill = %+v, want base in dev", entry)
@@ -113,6 +116,73 @@ func TestMigrateProducesGreenCheck(t *testing.T) {
 	if _, err := Migrate(MigrateRequest{Project: project, Confirm: confirmMigration}); err != nil {
 		t.Fatalf("Migrate() error = %v", err)
 	}
+	report, err := Check(CheckRequest{Project: project})
+	if err != nil {
+		t.Fatalf("Check() after migration error = %v", err)
+	}
+	if report.Recommendations != 0 {
+		t.Errorf("check recommendations = %d, want a green check: %+v", report.Recommendations, report)
+	}
+}
+
+func TestMigrateCleansMatchingNewAndKeepsDivergent(t *testing.T) {
+	project := t.TempDir()
+	writeV1State(t, project, "configured", "docs")
+	writeV1Manifest(t, project, "0.4.0", map[string]v1File{
+		"AGENTS.md":               {Origin: "core", SHA256: content.Checksum([]byte("base\n")), Ownership: "managed"},
+		"docs/note.md":            {Origin: "core", SHA256: content.Checksum([]byte("base note\n")), Ownership: "managed"},
+		".atlas/scripts/tool.mjs": {Origin: "core", SHA256: content.Checksum([]byte("tool\n")), Ownership: "managed"},
+	})
+	writeProjectFile(t, project, "AGENTS.md", "base\n")
+	writeProjectFile(t, project, "docs/note.md", "base note\n")
+	writeProjectFile(t, project, ".atlas/scripts/tool.mjs", "tool\n")
+	writeProjectFile(t, project, "AGENTS.md.new", "incoming\r\n")
+	writeProjectFile(t, project, "docs/note.md.new", "different\n")
+	writeProjectFile(t, project, ".atlas/scripts/tool.mjs.new", "tool v2\n")
+	writeProjectFile(t, project, "orphan.md.new", "orphan\n")
+
+	snapshot := t.TempDir()
+	writeProjectFile(t, snapshot, "dev/bundle.json", `{"id":"dev","version":"0.6.0","requires":[]}`)
+	writeProjectFile(t, snapshot, "dev/AGENTS.md", "incoming\n")
+	writeProjectFile(t, snapshot, "dev/docs/note.md", "incoming note\n")
+	writeProjectFile(t, snapshot, "dev/orphan.md", "orphan\n")
+
+	result, err := Migrate(MigrateRequest{Project: project, Snapshot: snapshot, Confirm: confirmMigration})
+	if err != nil {
+		t.Fatalf("Migrate() error = %v", err)
+	}
+	if len(result.Plan.RemoveNew) != 2 ||
+		result.Plan.RemoveNew[0] != "AGENTS.md.new" ||
+		result.Plan.RemoveNew[1] != "orphan.md.new" {
+		t.Errorf("removed .new = %v, want the two matching files", result.Plan.RemoveNew)
+	}
+	if len(result.Plan.KeepNew) != 2 ||
+		result.Plan.KeepNew[0] != ".atlas/scripts/tool.mjs.new" ||
+		result.Plan.KeepNew[1] != "docs/note.md.new" {
+		t.Errorf("kept .new = %v, want the two divergent files", result.Plan.KeepNew)
+	}
+	for _, rel := range result.Plan.RemoveNew {
+		if _, err := os.Stat(filepath.Join(project, filepath.FromSlash(rel))); !errors.Is(err, os.ErrNotExist) {
+			t.Errorf("%s still exists: %v", rel, err)
+		}
+	}
+	for _, rel := range result.Plan.KeepNew {
+		if _, err := os.Stat(filepath.Join(project, filepath.FromSlash(rel))); err != nil {
+			t.Errorf("%s was removed: %v", rel, err)
+		}
+	}
+
+	manifest, err := state.LoadManifest(filepath.Join(project, ".atlas", "manifest.json"))
+	if err != nil {
+		t.Fatalf("LoadManifest() error = %v", err)
+	}
+	if entry := manifest.Files[".atlas/scripts/tool.mjs"]; entry.Layer != state.LayerOwned {
+		t.Errorf("script layer = %q, want owned", entry.Layer)
+	}
+	if result.Plan.Scripts != 1 {
+		t.Errorf("scripts = %d, want 1", result.Plan.Scripts)
+	}
+
 	report, err := Check(CheckRequest{Project: project})
 	if err != nil {
 		t.Fatalf("Check() after migration error = %v", err)

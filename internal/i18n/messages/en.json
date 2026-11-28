@@ -104,12 +104,14 @@
   "doctor.verification.verified": "verified",
   "doctor.verification.unverified": "unverified",
   "doctor.detect_evidence": "Detected evidence: {evidence}.",
-  "migrate.plan": "Migration v1 -> v2: {files} files.",
+  "migrate.plan": "Migration v1 -> v2: {files} files, {scripts} scripts owned, {remove} .new removed, {keep} .new kept.",
   "migrate.confirm": "Proceed with the migration? [y/N]: ",
   "migrate.done": "Migration complete. Backup: {backup}.",
   "migrate.already": "The project is already at schema v2; nothing to do.",
   "migrate.confirmation_required": "Migration requires confirmation; use --yes in non-interactive mode.",
   "migrate.cancelled": "Migration cancelled; nothing was written.",
   "migrate.failed": "Could not migrate: {error}",
-  "migrate.deferred": "Pending: .atlas/scripts and .new files were not migrated; do not run apply --prune until the next migration piece."
+  "migrate.scripts": "Owned scripts: {count}.",
+  "migrate.new_removed": "Removed .new files: {paths}.",
+  "migrate.new_kept": "Divergent .new files kept: {paths}."
 }

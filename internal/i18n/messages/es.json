@@ -104,12 +104,14 @@
   "doctor.verification.verified": "verificada",
   "doctor.verification.unverified": "sin verificar",
   "doctor.detect_evidence": "Evidencia detectada: {evidence}.",
-  "migrate.plan": "Migración v1 -> v2: {files} archivos.",
+  "migrate.plan": "Migración v1 -> v2: {files} archivos, {scripts} scripts propios, {remove} .new eliminados, {keep} .new conservados.",
   "migrate.confirm": "¿Continuar con la migración? [s/N]: ",
   "migrate.done": "Migración completada. Copia de seguridad: {backup}.",
   "migrate.already": "El proyecto ya está en esquema v2; no hay nada que hacer.",
   "migrate.confirmation_required": "La migración requiere confirmación; usa --yes en modo no interactivo.",
   "migrate.cancelled": "Migración cancelada; no se escribió nada.",
   "migrate.failed": "No se pudo migrar: {error}",
-  "migrate.deferred": "Pendiente: .atlas/scripts y los archivos .new no se migraron; no ejecutes apply --prune hasta la siguiente pieza de migración."
+  "migrate.scripts": "Scripts propios: {count}.",
+  "migrate.new_removed": "Archivos .new eliminados: {paths}.",
+  "migrate.new_kept": "Archivos .new divergentes conservados: {paths}."
 }
