@@ -25,7 +25,9 @@ func TestMigrateRequiresConfirmationViaCLI(t *testing.T) {
 	if want := catalog.T(MsgMigrateConfirmationRequired, nil); !strings.Contains(errOut, want) {
 		t.Errorf("stderr = %q, want %q", errOut, want)
 	}
-	if want := catalog.T(MsgMigratePlan, map[string]string{"files": "1"}); !strings.Contains(out, want) {
+	if want := catalog.T(MsgMigratePlan, map[string]string{
+		"files": "1", "scripts": "0", "remove": "0", "keep": "0",
+	}); !strings.Contains(out, want) {
 		t.Errorf("stdout = %q, want %q", out, want)
 	}
 	if got := readCLIFile(t, project, ".atlas/state.json"); got != before {
@@ -207,5 +209,60 @@ func assertNoCLIBackups(t *testing.T, project string) {
 	}
 	if len(backups) != 0 {
 		t.Errorf("backups = %v, want none", backups)
+	}
+}
+
+func TestMigrateReportsScriptsAndNewFilesViaCLI(t *testing.T) {
+	project := t.TempDir()
+	writeCLIV1State(t, project, "configured", "docs")
+	writeCLIV1Manifest(t, project, map[string]cliV1File{
+		"AGENTS.md":               {Origin: "core", SHA256: content.Checksum([]byte("base\n")), Ownership: "managed"},
+		"docs/note.md":            {Origin: "core", SHA256: content.Checksum([]byte("base note\n")), Ownership: "managed"},
+		".atlas/scripts/tool.mjs": {Origin: "core", SHA256: content.Checksum([]byte("tool\n")), Ownership: "managed"},
+	})
+	writeCLIFile(t, project, "AGENTS.md", "base\n")
+	writeCLIFile(t, project, "docs/note.md", "base note\n")
+	writeCLIFile(t, project, ".atlas/scripts/tool.mjs", "tool\n")
+	writeCLIFile(t, project, "AGENTS.md.new", "incoming\r\n")
+	writeCLIFile(t, project, "docs/note.md.new", "different\n")
+	writeCLIFile(t, project, ".atlas/scripts/tool.mjs.new", "tool v2\n")
+
+	snapshot := t.TempDir()
+	writeCLIFile(t, snapshot, "dev/bundle.json", `{"id":"dev","version":"0.6.0","requires":[]}`)
+	writeCLIFile(t, snapshot, "dev/AGENTS.md", "incoming\n")
+	writeCLIFile(t, snapshot, "dev/docs/note.md", "incoming note\n")
+
+	out, errOut, code := runProject(t, project, "migrate", "--yes", "--snapshot", snapshot)
+	if code != ExitOK {
+		t.Fatalf("migrate exit code = %d, want %d: %s", code, ExitOK, errOut)
+	}
+	catalog := i18n.New(i18n.English)
+	for id, args := range map[string]map[string]string{
+		MsgMigrateScripts:    {"count": "1"},
+		MsgMigrateNewRemoved: {"paths": "AGENTS.md.new"},
+		MsgMigrateNewKept:    {"paths": ".atlas/scripts/tool.mjs.new, docs/note.md.new"},
+	} {
+		if want := catalog.T(id, args); !strings.Contains(out, want) {
+			t.Errorf("stdout = %q, want %q", out, want)
+		}
+	}
+	if _, err := os.Stat(filepath.Join(project, "AGENTS.md.new")); !os.IsNotExist(err) {
+		t.Errorf("matching .new was not removed: %v", err)
+	}
+	for _, rel := range []string{"docs/note.md.new", ".atlas/scripts/tool.mjs.new"} {
+		if _, err := os.Stat(filepath.Join(project, filepath.FromSlash(rel))); err != nil {
+			t.Errorf("%s was removed: %v", rel, err)
+		}
+	}
+
+	manifest, err := state.LoadManifest(filepath.Join(project, ".atlas", "manifest.json"))
+	if err != nil {
+		t.Fatalf("LoadManifest() error = %v", err)
+	}
+	if entry := manifest.Files[".atlas/scripts/tool.mjs"]; entry.Layer != state.LayerOwned {
+		t.Errorf("script layer = %q, want owned", entry.Layer)
+	}
+	if _, _, code := runProject(t, project, "check"); code != ExitOK {
+		t.Errorf("check exit code = %d, want a green check", code)
 	}
 }
