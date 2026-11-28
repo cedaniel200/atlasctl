@@ -584,3 +584,29 @@ func TestCreateRecordsDispatcherAsGenerated(t *testing.T) {
 		t.Errorf("dispatcher mode = %o, want 0755", info.Mode().Perm())
 	}
 }
+
+func TestApplyRestoresDispatcherExecutableBit(t *testing.T) {
+	project := t.TempDir()
+	if _, err := Create(request(project, setup.Answers{Host: "opencode"})); err != nil {
+		t.Fatalf("Create() error = %v", err)
+	}
+	dispatcher := filepath.Join(project, filepath.FromSlash(hooks.DispatcherPath))
+	if err := os.Chmod(dispatcher, 0o644); err != nil {
+		t.Fatalf("Chmod(dispatcher) error = %v", err)
+	}
+
+	result, err := Apply(ApplyRequest{Project: project})
+	if err != nil {
+		t.Fatalf("Apply() error = %v", err)
+	}
+	info, err := os.Stat(dispatcher)
+	if err != nil {
+		t.Fatalf("Stat(dispatcher) error = %v", err)
+	}
+	if info.Mode().Perm() != 0o755 {
+		t.Errorf("dispatcher mode = %o, want 0755", info.Mode().Perm())
+	}
+	if result.Report == nil || !slices.Contains(result.Report.Updated, hooks.DispatcherPath) {
+		t.Errorf("report = %+v, want the dispatcher updated", result.Report)
+	}
+}

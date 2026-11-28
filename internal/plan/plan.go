@@ -47,6 +47,9 @@ type Action struct {
 	Podeable bool
 	// Mode is the permission mode used when writing; zero means 0644.
 	Mode fs.FileMode
+	// ModeOnly reports an intact file whose permission bits differ from the
+	// expected mode: the application changes the mode without rewriting it.
+	ModeOnly bool
 }
 
 // Conflict is a path claimed by more than one source. A plan with conflicts is
@@ -67,6 +70,18 @@ type Generated struct {
 	Mode fs.FileMode
 }
 
+// ModeReader reports the permission bits of a project-relative file. A
+// nonexistent file must return an error that matches fs.ErrNotExist.
+type ModeReader interface {
+	Mode(path string) (fs.FileMode, error)
+}
+
+// ModeReaderFunc adapts a function to ModeReader.
+type ModeReaderFunc func(path string) (fs.FileMode, error)
+
+// Mode implements ModeReader.
+func (f ModeReaderFunc) Mode(path string) (fs.FileMode, error) { return f(path) }
+
 // Options tunes the plan. Prune allows deleting intact base files that left the
 // snapshot. SpecEngineRoot and HostConfig feed the closed list of routes that
 // are never pruned.
@@ -81,6 +96,7 @@ type Request struct {
 	Snapshot  *content.Snapshot
 	Manifest  *state.Manifest
 	Reader    classify.Reader
+	Modes     ModeReader
 	Generated []Generated
 	Options   Options
 }
@@ -162,6 +178,9 @@ func Build(request Request) (*Plan, error) {
 		file, wanted := desired[filePath]
 		action, newEntry, include := decide(filePath, file, wanted, entry, tracked, probe, request.Options, exclusions)
 		if action.Path != "" {
+			if err := correctMode(&action, filePath, file, wanted, request.Modes); err != nil {
+				return nil, err
+			}
 			planned.Actions = append(planned.Actions, action)
 		}
 		if include {
@@ -212,6 +231,30 @@ func probeManifest(paths []string, desired map[string]desiredFile, manifest map[
 		}
 	}
 	return probes, keepOnly
+}
+
+// correctMode turns an intact generated file into a mode-only update when its
+// permission bits differ from the expected ones. Content is never rewritten
+// for a permission change.
+func correctMode(action *Action, filePath string, file desiredFile, wanted bool, modes ModeReader) error {
+	if !wanted || action.Kind != Keep || file.layer != state.LayerGenerated || file.mode == 0 || modes == nil {
+		return nil
+	}
+	mode, err := modes.Mode(filePath)
+	if errors.Is(err, fs.ErrNotExist) {
+		return nil
+	}
+	if err != nil {
+		return fmt.Errorf("plan: %w", err)
+	}
+	if mode.Perm() == file.mode.Perm() {
+		return nil
+	}
+	action.Kind = Update
+	action.Data = file.data
+	action.Mode = file.mode
+	action.ModeOnly = true
+	return nil
 }
 
 func decide(filePath string, file desiredFile, wanted bool, entry state.ManifestFile, tracked bool, probe classify.File, options Options, exclusions exclusions) (Action, state.ManifestFile, bool) {

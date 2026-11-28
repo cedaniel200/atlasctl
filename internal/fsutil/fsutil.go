@@ -100,6 +100,41 @@ func (r RootReader) Read(rel string) ([]byte, error) {
 	return os.ReadFile(absolute)
 }
 
+// RootModes reports the permission bits of project-relative files. It
+// satisfies the planner's mode contract without exposing the filesystem.
+type RootModes struct {
+	Root string
+}
+
+// Mode returns the permission bits of rel.
+func (m RootModes) Mode(rel string) (fs.FileMode, error) {
+	absolute, err := SafeJoin(m.Root, rel)
+	if err != nil {
+		return 0, err
+	}
+	info, err := os.Stat(absolute)
+	if err != nil {
+		return 0, err
+	}
+	return info.Mode().Perm(), nil
+}
+
+// ChmodProjectFile changes the permission bits of a project-relative file. It
+// refuses paths that cross a symbolic link.
+func ChmodProjectFile(root, rel string, mode os.FileMode) error {
+	if err := CheckNoSymlinks(root, rel); err != nil {
+		return err
+	}
+	absolute, err := SafeJoin(root, rel)
+	if err != nil {
+		return err
+	}
+	if err := os.Chmod(absolute, mode.Perm()); err != nil {
+		return fmt.Errorf("chmod %q: %w", rel, err)
+	}
+	return nil
+}
+
 // WriteProjectFile writes a project-relative file atomically. It refuses paths
 // that cross a symbolic link.
 func WriteProjectFile(root, rel string, data []byte) error {
