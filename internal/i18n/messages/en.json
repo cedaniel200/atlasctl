@@ -18,5 +18,13 @@
   "cli.conflicting_flags": "Flags {first} and {second} cannot be combined.",
   "setup.adopted": "Adopted the existing project; the harness content is now installed.",
   "setup.configured": "Configuration updated.",
-  "setup.already_adopted": "The project is already adopted; use configure to change it or apply to update the content."
+  "setup.already_adopted": "The project is already adopted; use configure to change it or apply to update the content.",
+  "apply.done": "Plan applied.",
+  "apply.dry_run": "Dry run: nothing was written.",
+  "apply.updated": "Updated: {count}",
+  "apply.conserved": "Conserved: {count}",
+  "apply.divergent": "Divergent: {count}",
+  "apply.pruned": "Pruned: {count}",
+  "apply.not_configured": "The project is not configured; run create or adopt first.",
+  "apply.failed": "Could not apply the plan: {error}"
 }

@@ -1,5 +1,6 @@
-// Package hooks installs the generated pre-commit dispatcher and reports the
-// project hook configuration. Adopter guards live in guards.d/ and are never
+// Package hooks manages the project hook configuration: it owns the guards
+// directory and enables core.hooksPath. The dispatcher itself is generated
+// content published by the plan; adopter guards live in guards.d/ and are never
 // written by the engine.
 package hooks
 
@@ -36,14 +37,6 @@ const (
 	PathForeign PathState = "foreign"
 )
 
-// Options tunes the installation.
-type Options struct {
-	// SpecEngineRoot is the project-relative root of the specification engine
-	// (for example "openspec"). The base-branch guard uses it to recognize
-	// change artifacts; empty means the project has no spec engine.
-	SpecEngineRoot string
-}
-
 // Report is the current hook installation state. It is what doctor needs to
 // explain whether hooks are active and why not.
 type Report struct {
@@ -57,16 +50,11 @@ type Report struct {
 	Active     bool
 }
 
-// Install writes the generated dispatcher, creates the owned guards directory
-// and enables core.hooksPath when it is unset. It never touches a foreign
-// hooks path and does nothing outside a Git worktree root.
-func Install(project string, options Options) (Report, error) {
-	if options.SpecEngineRoot != "" {
-		if err := fsutil.ValidateRelative(options.SpecEngineRoot); err != nil {
-			return Report{}, fmt.Errorf("hooks: invalid spec engine root %q: %w", options.SpecEngineRoot, err)
-		}
-	}
-
+// Install creates the owned guards directory and enables core.hooksPath when
+// it is unset. It never touches a foreign hooks path and does nothing outside a
+// Git worktree root. The dispatcher itself belongs to the plan and is written
+// by the applier.
+func Install(project string) (Report, error) {
 	report, err := Status(project)
 	if err != nil {
 		return report, err
@@ -83,10 +71,6 @@ func Install(project string, options Options) (Report, error) {
 	if err := os.MkdirAll(filepath.Join(project, filepath.FromSlash(GuardsDir)), 0o755); err != nil {
 		return report, fmt.Errorf("hooks: create %s: %w", GuardsDir, err)
 	}
-	if err := fsutil.WriteProjectFileMode(project, DispatcherPath, dispatcher(options.SpecEngineRoot), 0o755); err != nil {
-		return report, fmt.Errorf("hooks: %w", err)
-	}
-
 	if report.PathState == PathUnset {
 		if err := setLocalHooksPath(project, HarnessPath); err != nil {
 			return report, err

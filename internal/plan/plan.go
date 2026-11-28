@@ -7,6 +7,7 @@ package plan
 import (
 	"errors"
 	"fmt"
+	"io/fs"
 	"path"
 	"sort"
 	"strings"
@@ -44,6 +45,8 @@ type Action struct {
 	// Podeable reports an intact base file that left the snapshot and would be
 	// removed by a pruning application.
 	Podeable bool
+	// Mode is the permission mode used when writing; zero means 0644.
+	Mode fs.FileMode
 }
 
 // Conflict is a path claimed by more than one source. A plan with conflicts is
@@ -60,6 +63,8 @@ type Generated struct {
 	Bundle string
 	Origin string
 	Data   []byte
+	// Mode is the permission mode used when writing; zero means 0644.
+	Mode fs.FileMode
 }
 
 // Options tunes the plan. Prune allows deleting intact base files that left the
@@ -94,6 +99,7 @@ type desiredFile struct {
 	origin string
 	sha    string
 	data   []byte
+	mode   fs.FileMode
 }
 
 // Build calculates the plan without touching the filesystem.
@@ -237,6 +243,7 @@ func decideBase(filePath string, file desiredFile, entry state.ManifestFile, tra
 	}
 	if action.Kind != Keep {
 		action.Data = file.data
+		action.Mode = file.mode
 	}
 
 	origin := "core"
@@ -263,6 +270,7 @@ func decideGenerated(filePath string, file desiredFile, entry state.ManifestFile
 	}
 	if action.Kind != Keep {
 		action.Data = file.data
+		action.Mode = file.mode
 	}
 	return action, state.ManifestFile{Bundle: file.bundle, Origin: file.origin, Layer: state.LayerGenerated, SHA256: file.sha}, true
 }
@@ -321,7 +329,7 @@ func desiredFiles(snapshot *content.Snapshot, generated []Generated) (map[string
 	for _, file := range generated {
 		add(desiredFile{
 			layer: state.LayerGenerated, bundle: file.Bundle, origin: file.Origin,
-			sha: content.Checksum(file.Data), data: file.Data,
+			sha: content.Checksum(file.Data), data: file.Data, mode: file.Mode,
 		}, file.Path)
 	}
 

@@ -1,6 +1,6 @@
-// Package commands wires create: it resolves the setup, validates
-// the specification engine and layout, selects bundles, renders host
-// artifacts, plans, applies, installs hooks and records the state.
+// Package commands wires create, adopt, configure and apply: it resolves the
+// specification engine and layout, selects bundles, renders host artifacts,
+// plans, applies, manages the hook configuration and records the state.
 package commands
 
 import (
@@ -27,11 +27,14 @@ import (
 // it at release time.
 const EngineVersion = "0.6.0"
 
+// ErrNotConfigured reports a command that needs an adopted project.
+var ErrNotConfigured = errors.New("commands: project is not configured; run create or adopt first")
+
 // contentRoutes are the project routes the engine may materialize outside
 // .atlas/ and the host routes: the shared contract and the canonical skills.
 var contentRoutes = []string{"AGENTS.md", ".agents/skills"}
 
-// Request is the input of create or adopt.
+// Request is the input of create, adopt or configure.
 type Request struct {
 	Project     string
 	Answers     setup.Answers
@@ -44,12 +47,24 @@ type Request struct {
 	LangSet     bool
 }
 
+// ApplyRequest is the input of an application over an adopted project.
+type ApplyRequest struct {
+	Project  string
+	Snapshot string
+	Bundles  []string
+	Preset   string
+	Host     string
+	Prune    bool
+	DryRun   bool
+}
+
 // Result is the outcome of the command.
 type Result struct {
 	State          state.State
 	Pending        []string
 	Complete       bool
 	AlreadyAdopted bool
+	DryRun         bool
 	Report         *apply.Report
 	Hooks          hooks.Report
 }
@@ -86,26 +101,60 @@ func Configure(request Request) (Result, error) {
 		return Result{}, err
 	}
 	if existing == nil {
-		return Result{}, errors.New("commands: project is not configured; run create or adopt first")
+		return Result{}, ErrNotConfigured
 	}
 	return run(request)
+}
+
+// Apply updates an adopted project with the existing state and manifest. It
+// never asks setup questions; flags only override bundles, host or pruning.
+func Apply(request ApplyRequest) (Result, error) {
+	if request.Project == "" {
+		return Result{}, errors.New("commands: project root is required")
+	}
+	existing, manifest, err := loadExisting(request.Project)
+	if err != nil {
+		return Result{}, err
+	}
+	if existing == nil {
+		return Result{}, ErrNotConfigured
+	}
+
+	st := *existing
+	var strategy host.Strategy
+	if st.Host.ID != "" {
+		strategy, err = host.Lookup(st.Host.ID)
+		if err != nil {
+			return Result{}, err
+		}
+	}
+	if request.Host != "" {
+		strategy, err = host.Lookup(request.Host)
+		if err != nil {
+			return Result{}, err
+		}
+		if request.Host != st.Host.ID {
+			st.Host = state.Host{ID: strategy.ID(), Source: "flag", Evidence: []string{}}
+		}
+	}
+
+	bundles := request.Bundles
+	if len(bundles) == 0 {
+		bundles = st.Bundles
+	}
+	if len(bundles) == 0 && request.Preset == "" {
+		bundles = []string{setup.DefaultBundle}
+	}
+	return deploy(request.Project, request.Snapshot, existing, manifest, st, strategy, bundles, request.Preset, request.Prune, request.DryRun)
 }
 
 func run(request Request) (Result, error) {
 	if request.Project == "" {
 		return Result{}, errors.New("commands: project root is required")
 	}
-
 	existing, manifest, err := loadExisting(request.Project)
 	if err != nil {
 		return Result{}, err
-	}
-	var previous host.Strategy
-	if existing != nil && existing.Host.ID != "" {
-		previous, err = host.Lookup(existing.Host.ID)
-		if err != nil {
-			return Result{}, err
-		}
 	}
 
 	resolved, err := setup.Resolve(setup.Request{
@@ -122,39 +171,53 @@ func run(request Request) (Result, error) {
 	if err != nil {
 		return Result{}, err
 	}
-	if _, err := spec.Resolve(resolved.State.SpecEngine, request.Project); err != nil {
-		return Result{}, err
-	}
-	layout, err := spec.ResolveLayout(resolved.State.Layout)
-	if err != nil {
-		return Result{}, err
-	}
+	return deploy(request.Project, request.Snapshot, existing, manifest, resolved.State, resolved.Strategy, resolved.Bundles, resolved.Preset, false, false)
+}
 
-	snapshot, err := bundle.Load(request.Snapshot)
+func deploy(project, snapshotPath string, existing *state.State, manifest *state.Manifest, st state.State, strategy host.Strategy, bundles []string, preset string, prune, dryRun bool) (Result, error) {
+	if _, err := spec.Resolve(st.SpecEngine, project); err != nil {
+		return Result{}, err
+	}
+	layout, err := spec.ResolveLayout(st.Layout)
 	if err != nil {
 		return Result{}, err
 	}
-	selection, err := bundle.Select(snapshot, bundle.Request{Bundles: resolved.Bundles, Preset: resolved.Preset})
+	st.Layout = layoutState(layout)
+
+	snapshot, err := bundle.Load(snapshotPath)
+	if err != nil {
+		return Result{}, err
+	}
+	selection, err := bundle.Select(snapshot, bundle.Request{Bundles: bundles, Preset: preset})
 	if err != nil {
 		return Result{}, err
 	}
 
 	var artifacts []plan.Generated
-	if resolved.Strategy != nil {
-		artifacts, err = resolved.Strategy.Artifacts(host.Input{
-			Snapshot: selection.Snapshot,
-			Bundles:  selection.IDs,
-		})
+	if strategy != nil {
+		artifacts, err = strategy.Artifacts(host.Input{Snapshot: selection.Snapshot, Bundles: selection.IDs})
 		if err != nil {
 			return Result{}, err
 		}
 	}
+	artifacts = append(artifacts, plan.Generated{
+		Path:   hooks.DispatcherPath,
+		Bundle: selection.IDs[0],
+		Origin: "core",
+		Data:   hooks.Script(st.SpecEngine.Root),
+		Mode:   0o755,
+	})
 
-	transition := host.Transition(previous, resolved.Strategy)
+	var previous host.Strategy
+	if existing != nil && existing.Host.ID != "" {
+		previous, err = host.Lookup(existing.Host.ID)
+		if err != nil {
+			return Result{}, err
+		}
+	}
+	transition := host.Transition(previous, strategy)
 	allowed := append([]string(nil), contentRoutes...)
 	allowed = append(allowed, transition.Allowed...)
-	removeDirs := transition.LegacyDirs
-	hostConfig := transition.ConfigFiles
 
 	if manifest == nil {
 		manifest = &state.Manifest{SchemaVersion: state.SchemaVersion}
@@ -162,22 +225,40 @@ func run(request Request) (Result, error) {
 	planned, err := plan.Build(plan.Request{
 		Snapshot:  selection.Snapshot,
 		Manifest:  manifest,
-		Reader:    fsutil.RootReader{Root: request.Project},
+		Reader:    fsutil.RootReader{Root: project},
 		Generated: artifacts,
 		Options: plan.Options{
-			SpecEngineRoot: resolved.State.SpecEngine.Root,
-			HostConfig:     hostConfig,
+			Prune:          prune,
+			SpecEngineRoot: st.SpecEngine.Root,
+			HostConfig:     transition.ConfigFiles,
 		},
 	})
 	if err != nil {
 		return Result{}, err
 	}
+	if dryRun {
+		if err := apply.Validate(apply.Request{
+			Root:       project,
+			Plan:       planned,
+			Allowed:    allowed,
+			RemoveDirs: transition.LegacyDirs,
+		}); err != nil {
+			return Result{}, err
+		}
+		return Result{
+			State:    st,
+			Pending:  st.Setup.Pending,
+			Complete: st.Setup.Complete,
+			DryRun:   true,
+			Report:   preview(planned),
+		}, nil
+	}
 
 	report, err := apply.Apply(apply.Request{
-		Root:          request.Project,
+		Root:          project,
 		Plan:          planned,
 		Allowed:       allowed,
-		RemoveDirs:    removeDirs,
+		RemoveDirs:    transition.LegacyDirs,
 		EngineVersion: EngineVersion,
 		GeneratedAt:   time.Now().UTC(),
 	})
@@ -185,49 +266,56 @@ func run(request Request) (Result, error) {
 		return Result{}, err
 	}
 
-	reinstallHooks := existing == nil || existing.SpecEngine.Root != resolved.State.SpecEngine.Root || !existing.Hooks.Installed
-	hookReport := hooks.Report{}
-	if reinstallHooks {
-		hookReport, err = hooks.Install(request.Project, hooks.Options{SpecEngineRoot: resolved.State.SpecEngine.Root})
-		if err != nil {
-			return Result{}, err
-		}
+	hookReport, err := hooks.Install(project)
+	if err != nil {
+		return Result{}, err
 	}
 
-	st := resolved.State
 	st.SchemaVersion = state.SchemaVersion
 	st.EngineVersion = EngineVersion
 	st.Bundles = selection.IDs
 	st.Content.BundleVersion = primaryVersion(selection.Snapshot)
-	st.Layout = layoutState(layout)
-	if reinstallHooks {
-		st.Hooks.Installed = hookReport.Active
-	} else {
-		st.Hooks.Installed = existing.Hooks.Installed
-	}
+	st.Hooks.Installed = hookReport.Active
 	if st.MaxParallel == "" {
 		st.MaxParallel = state.MaxParallelAuto
 	}
 	if st.Architecture.Stance == "" {
 		st.Architecture.Stance = "custom"
 	}
-	st.Setup = state.Setup{Complete: resolved.Complete, Pending: resolved.Pending}
 
-	if err := fsutil.CheckNoSymlinks(request.Project, ".atlas/state.json"); err != nil {
+	if err := fsutil.CheckNoSymlinks(project, ".atlas/state.json"); err != nil {
 		return Result{}, err
 	}
-	statePath := filepath.Join(request.Project, ".atlas", "state.json")
+	statePath := filepath.Join(project, ".atlas", "state.json")
 	if err := state.Save(statePath, &st); err != nil {
 		return Result{}, err
 	}
 
 	return Result{
 		State:    st,
-		Pending:  resolved.Pending,
-		Complete: resolved.Complete,
+		Pending:  st.Setup.Pending,
+		Complete: st.Setup.Complete,
 		Report:   report,
 		Hooks:    hookReport,
 	}, nil
+}
+
+func preview(planned *plan.Plan) *apply.Report {
+	report := &apply.Report{}
+	for _, action := range planned.Actions {
+		switch action.Kind {
+		case plan.Create, plan.Update:
+			report.Updated = append(report.Updated, action.Path)
+		case plan.Keep:
+			report.Conserved = append(report.Conserved, action.Path)
+		case plan.Delete:
+			report.Pruned = append(report.Pruned, action.Path)
+		}
+		if action.Divergent {
+			report.Divergent = append(report.Divergent, action.Path)
+		}
+	}
+	return report
 }
 
 func loadExisting(project string) (*state.State, *state.Manifest, error) {

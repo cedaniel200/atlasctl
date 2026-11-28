@@ -1,12 +1,15 @@
 package commands
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"reflect"
+	"slices"
 	"testing"
 
 	"github.com/cedaniel200/atlasctl/internal/content"
+	"github.com/cedaniel200/atlasctl/internal/hooks"
 	"github.com/cedaniel200/atlasctl/internal/i18n"
 	"github.com/cedaniel200/atlasctl/internal/setup"
 	"github.com/cedaniel200/atlasctl/internal/state"
@@ -413,5 +416,171 @@ func TestConfigureWithoutState(t *testing.T) {
 	}
 	if _, err := os.Stat(filepath.Join(project, ".atlas")); !os.IsNotExist(err) {
 		t.Errorf(".atlas was created: %v", err)
+	}
+}
+
+func TestApplyUpdatesContentAndKeepsConfiguration(t *testing.T) {
+	snapshot := t.TempDir()
+	writeProjectFile(t, snapshot, "dev/bundle.json", `{"id":"dev","version":"0.1.0","requires":[]}`)
+	writeProjectFile(t, snapshot, "dev/AGENTS.md", "# v1\n")
+
+	project := t.TempDir()
+	createRequest := request(project, setup.Answers{
+		Host:        "opencode",
+		Docs:        "docs",
+		NoDecisions: true,
+		Bundles:     []string{"dev"},
+	})
+	createRequest.Snapshot = snapshot
+	createRequest.LangSet = true
+	createRequest.CLILanguage = "es"
+	if _, err := Create(createRequest); err != nil {
+		t.Fatalf("Create() error = %v", err)
+	}
+
+	writeProjectFile(t, snapshot, "dev/AGENTS.md", "# v2\n")
+	result, err := Apply(ApplyRequest{Project: project, Snapshot: snapshot})
+	if err != nil {
+		t.Fatalf("Apply() error = %v", err)
+	}
+	if got := readProjectFile(t, project, "AGENTS.md"); got != "# v2\n" {
+		t.Errorf("AGENTS.md = %q, want the updated content", got)
+	}
+	if result.Report == nil || !slices.Contains(result.Report.Updated, "AGENTS.md") {
+		t.Errorf("report = %+v, want AGENTS.md updated", result.Report)
+	}
+
+	written := readState(t, project)
+	if written.Language.User != "es" || written.Layout.Docs != "docs" || written.Host.ID != "opencode" {
+		t.Errorf("state = %+v, want the stored configuration preserved", written)
+	}
+	if !written.Setup.Complete {
+		t.Error("setup become incomplete after apply")
+	}
+}
+
+func TestApplyDryRunWritesNothing(t *testing.T) {
+	snapshot := t.TempDir()
+	writeProjectFile(t, snapshot, "dev/bundle.json", `{"id":"dev","version":"0.1.0","requires":[]}`)
+	writeProjectFile(t, snapshot, "dev/AGENTS.md", "# v1\n")
+
+	project := t.TempDir()
+	createRequest := request(project, setup.Answers{Host: "opencode"})
+	createRequest.Snapshot = snapshot
+	if _, err := Create(createRequest); err != nil {
+		t.Fatalf("Create() error = %v", err)
+	}
+	manifestPath := filepath.Join(project, ".atlas", "manifest.json")
+	before, err := state.LoadManifest(manifestPath)
+	if err != nil {
+		t.Fatalf("LoadManifest() error = %v", err)
+	}
+
+	writeProjectFile(t, snapshot, "dev/AGENTS.md", "# v2\n")
+	result, err := Apply(ApplyRequest{Project: project, Snapshot: snapshot, DryRun: true})
+	if err != nil {
+		t.Fatalf("Apply() error = %v", err)
+	}
+	if !result.DryRun {
+		t.Error("DryRun = false, want true")
+	}
+	if got := readProjectFile(t, project, "AGENTS.md"); got != "# v1\n" {
+		t.Errorf("AGENTS.md = %q, want the dry run to write nothing", got)
+	}
+	after, err := state.LoadManifest(manifestPath)
+	if err != nil {
+		t.Fatalf("LoadManifest() after dry run error = %v", err)
+	}
+	if after.Files["AGENTS.md"].SHA256 != before.Files["AGENTS.md"].SHA256 {
+		t.Error("the dry run changed the manifest")
+	}
+}
+
+func TestApplyPrunesRemovedContent(t *testing.T) {
+	snapshot := t.TempDir()
+	writeProjectFile(t, snapshot, "dev/bundle.json", `{"id":"dev","version":"0.1.0","requires":[]}`)
+	writeProjectFile(t, snapshot, "dev/AGENTS.md", "# Contract\n")
+	writeProjectFile(t, snapshot, "dev/.agents/skills/old.md", "# Old\n")
+
+	project := t.TempDir()
+	createRequest := request(project, setup.Answers{Host: "opencode"})
+	createRequest.Snapshot = snapshot
+	if _, err := Create(createRequest); err != nil {
+		t.Fatalf("Create() error = %v", err)
+	}
+
+	if err := os.Remove(filepath.Join(snapshot, "dev", ".agents", "skills", "old.md")); err != nil {
+		t.Fatalf("Remove(old.md) error = %v", err)
+	}
+	result, err := Apply(ApplyRequest{Project: project, Snapshot: snapshot, Prune: true})
+	if err != nil {
+		t.Fatalf("Apply() error = %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(project, ".agents", "skills", "old.md")); !os.IsNotExist(err) {
+		t.Errorf("old.md still exists: %v", err)
+	}
+	if result.Report == nil || !slices.Contains(result.Report.Pruned, ".agents/skills/old.md") {
+		t.Errorf("report = %+v, want the removed skill pruned", result.Report)
+	}
+	manifest, err := state.LoadManifest(filepath.Join(project, ".atlas", "manifest.json"))
+	if err != nil {
+		t.Fatalf("LoadManifest() error = %v", err)
+	}
+	if _, ok := manifest.Files[".agents/skills/old.md"]; ok {
+		t.Error("the manifest still tracks the removed skill")
+	}
+}
+
+func TestApplyChangesHost(t *testing.T) {
+	project := t.TempDir()
+	if _, err := Create(request(project, setup.Answers{Host: "opencode"})); err != nil {
+		t.Fatalf("Create() error = %v", err)
+	}
+
+	result, err := Apply(ApplyRequest{Project: project, Host: "claude"})
+	if err != nil {
+		t.Fatalf("Apply() error = %v", err)
+	}
+	if result.State.Host.ID != "claude" {
+		t.Errorf("host = %q, want claude", result.State.Host.ID)
+	}
+	if _, err := os.Stat(filepath.Join(project, "CLAUDE.md")); err != nil {
+		t.Errorf("CLAUDE.md was not written: %v", err)
+	}
+}
+
+func TestApplyWithoutState(t *testing.T) {
+	project := t.TempDir()
+	if _, err := Apply(ApplyRequest{Project: project}); !errors.Is(err, ErrNotConfigured) {
+		t.Fatalf("Apply() error = %v, want ErrNotConfigured", err)
+	}
+	if _, err := os.Stat(filepath.Join(project, ".atlas")); !os.IsNotExist(err) {
+		t.Errorf(".atlas was created: %v", err)
+	}
+}
+
+func TestCreateRecordsDispatcherAsGenerated(t *testing.T) {
+	project := t.TempDir()
+	if _, err := Create(request(project, setup.Answers{Host: "opencode"})); err != nil {
+		t.Fatalf("Create() error = %v", err)
+	}
+
+	manifest, err := state.LoadManifest(filepath.Join(project, ".atlas", "manifest.json"))
+	if err != nil {
+		t.Fatalf("LoadManifest() error = %v", err)
+	}
+	entry, ok := manifest.Files[hooks.DispatcherPath]
+	if !ok {
+		t.Fatalf("manifest has no entry for %s", hooks.DispatcherPath)
+	}
+	if entry.Layer != state.LayerGenerated || entry.Origin != "core" || entry.Bundle != "dev" {
+		t.Errorf("dispatcher entry = %+v, want generated core content of dev", entry)
+	}
+	info, err := os.Stat(filepath.Join(project, filepath.FromSlash(hooks.DispatcherPath)))
+	if err != nil {
+		t.Fatalf("Stat(dispatcher) error = %v", err)
+	}
+	if info.Mode().Perm() != 0o755 {
+		t.Errorf("dispatcher mode = %o, want 0755", info.Mode().Perm())
 	}
 }

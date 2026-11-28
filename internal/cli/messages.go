@@ -18,4 +18,12 @@ const (
 	MsgSetupComplete       = "setup.complete"
 	MsgSetupReport         = "setup.report"
 	MsgSetupFailed         = "setup.failed"
+	MsgApplyDone           = "apply.done"
+	MsgApplyDryRun         = "apply.dry_run"
+	MsgApplyUpdated        = "apply.updated"
+	MsgApplyConserved      = "apply.conserved"
+	MsgApplyDivergent      = "apply.divergent"
+	MsgApplyPruned         = "apply.pruned"
+	MsgApplyNotConfigured  = "apply.not_configured"
+	MsgApplyFailed         = "apply.failed"
 )

@@ -8,6 +8,8 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+
+	"github.com/cedaniel200/atlasctl/internal/fsutil"
 )
 
 func isolateGit(t *testing.T) {
@@ -75,9 +77,12 @@ func writeGuard(t *testing.T, root, name, body string, executable bool) {
 	}
 }
 
-func installHooks(t *testing.T, root string, options Options) Report {
+func installHooks(t *testing.T, root, specRoot string) Report {
 	t.Helper()
-	report, err := Install(root, options)
+	if err := fsutil.WriteProjectFileMode(root, DispatcherPath, Script(specRoot), 0o755); err != nil {
+		t.Fatalf("WriteProjectFileMode() error = %v", err)
+	}
+	report, err := Install(root)
 	if err != nil {
 		t.Fatalf("Install() error = %v", err)
 	}
@@ -102,7 +107,7 @@ func attemptCommit(t *testing.T, root string) (string, int) {
 func TestInstallSetsHarnessPathAndWritesDispatcher(t *testing.T) {
 	root := initRepo(t, "main", true)
 
-	report := installHooks(t, root, Options{SpecEngineRoot: "openspec"})
+	report := installHooks(t, root, "openspec")
 	if !report.Git || !report.Repository {
 		t.Fatalf("report = %+v, want a git repository", report)
 	}
@@ -147,7 +152,7 @@ func TestInstallKeepsForeignHooksPath(t *testing.T) {
 	root := initRepo(t, "main", true)
 	runGit(t, root, "config", "--local", "core.hooksPath", "other-hooks")
 
-	report := installHooks(t, root, Options{SpecEngineRoot: "openspec"})
+	report := installHooks(t, root, "openspec")
 	if report.PathState != PathForeign {
 		t.Errorf("path state = %q, want %q", report.PathState, PathForeign)
 	}
@@ -177,7 +182,10 @@ func TestInstallWithoutRepositorySkipsHooks(t *testing.T) {
 	isolateGit(t)
 	root := t.TempDir()
 
-	report := installHooks(t, root, Options{SpecEngineRoot: "openspec"})
+	report, err := Install(root)
+	if err != nil {
+		t.Fatalf("Install() error = %v", err)
+	}
 	if report.Repository {
 		t.Error("Repository = true, want false")
 	}
@@ -199,7 +207,7 @@ func TestInstallWithoutRepositorySkipsHooks(t *testing.T) {
 
 func TestInstallIsIdempotent(t *testing.T) {
 	root := initRepo(t, "main", true)
-	installHooks(t, root, Options{SpecEngineRoot: "openspec"})
+	installHooks(t, root, "openspec")
 
 	path := filepath.Join(root, filepath.FromSlash(DispatcherPath))
 	before, err := os.ReadFile(path)
@@ -207,7 +215,7 @@ func TestInstallIsIdempotent(t *testing.T) {
 		t.Fatalf("ReadFile() error = %v", err)
 	}
 
-	report := installHooks(t, root, Options{SpecEngineRoot: "openspec"})
+	report := installHooks(t, root, "openspec")
 	if report.PathState != PathHarness || !report.Active {
 		t.Errorf("report = %+v, want the harness path active", report)
 	}
@@ -220,20 +228,9 @@ func TestInstallIsIdempotent(t *testing.T) {
 	}
 }
 
-func TestInstallRejectsUnsafeSpecEngineRoot(t *testing.T) {
-	root := initRepo(t, "main", true)
-
-	if _, err := Install(root, Options{SpecEngineRoot: "../outside"}); err == nil {
-		t.Fatal("Install() error = nil, want an invalid spec engine root error")
-	}
-	if _, err := os.Stat(filepath.Join(root, ".atlas")); !errors.Is(err, os.ErrNotExist) {
-		t.Errorf(".atlas was created before validating the spec engine root: %v", err)
-	}
-}
-
 func TestStatusListsExecutableGuards(t *testing.T) {
 	root := initRepo(t, "main", true)
-	installHooks(t, root, Options{SpecEngineRoot: "openspec"})
+	installHooks(t, root, "openspec")
 	writeGuard(t, root, "20-b", "#!/bin/sh\nexit 0\n", true)
 	writeGuard(t, root, "10-a", "#!/bin/sh\nexit 0\n", true)
 	writeGuard(t, root, "30-c", "#!/bin/sh\nexit 0\n", false)
@@ -264,5 +261,26 @@ func TestStatusBeforeInstall(t *testing.T) {
 	}
 	if status.Dispatcher || status.GuardsDir || status.Active {
 		t.Errorf("status = %+v, want no installed hooks", status)
+	}
+}
+
+func TestInstallLeavesDispatcherToThePlan(t *testing.T) {
+	root := initRepo(t, "main", true)
+
+	report, err := Install(root)
+	if err != nil {
+		t.Fatalf("Install() error = %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(root, filepath.FromSlash(DispatcherPath))); !errors.Is(err, os.ErrNotExist) {
+		t.Errorf("Install wrote the dispatcher: %v", err)
+	}
+	if !report.GuardsDir {
+		t.Error("GuardsDir = false, want the owned directory created")
+	}
+	if report.Dispatcher {
+		t.Error("Dispatcher = true, want it reported by its generated file, not Install")
+	}
+	if report.PathState != PathHarness {
+		t.Errorf("PathState = %q, want the harness path", report.PathState)
 	}
 }

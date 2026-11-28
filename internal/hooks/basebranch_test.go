@@ -8,7 +8,7 @@ import (
 
 func TestBaseBranchBlocksChangeArtifacts(t *testing.T) {
 	root := initRepo(t, "main", true)
-	installHooks(t, root, Options{SpecEngineRoot: "openspec"})
+	installHooks(t, root, "openspec")
 	stageFile(t, root, "openspec/changes/demo/proposal.md", "# Proposal\n")
 
 	output, code := attemptCommit(t, root)
@@ -30,7 +30,7 @@ func TestBaseBranchBlocksChangeArtifacts(t *testing.T) {
 
 func TestBaseBranchBlocksOtherChanges(t *testing.T) {
 	root := initRepo(t, "main", true)
-	installHooks(t, root, Options{SpecEngineRoot: "openspec"})
+	installHooks(t, root, "openspec")
 	stageFile(t, root, "src/app.js", "export const ok = true;\n")
 
 	output, code := attemptCommit(t, root)
@@ -47,7 +47,7 @@ func TestBaseBranchBlocksOtherChanges(t *testing.T) {
 
 func TestFeatureBranchAllowsTheCommit(t *testing.T) {
 	root := initRepo(t, "main", true)
-	installHooks(t, root, Options{SpecEngineRoot: "openspec"})
+	installHooks(t, root, "openspec")
 	runGit(t, root, "checkout", "--quiet", "-b", "feature/demo")
 	stageFile(t, root, "src/app.js", "export const ok = true;\n")
 
@@ -62,7 +62,7 @@ func TestFeatureBranchAllowsTheCommit(t *testing.T) {
 
 func TestWorktreeAllowsTheCommit(t *testing.T) {
 	root := initRepo(t, "main", true)
-	installHooks(t, root, Options{SpecEngineRoot: "openspec"})
+	installHooks(t, root, "openspec")
 	runGit(t, root, "add", ".atlas")
 	runGit(t, root, "commit", "--quiet", "--no-verify", "-m", "chore: hooks")
 
@@ -78,7 +78,7 @@ func TestWorktreeAllowsTheCommit(t *testing.T) {
 
 func TestDetachedHeadAllowsTheCommit(t *testing.T) {
 	root := initRepo(t, "main", true)
-	installHooks(t, root, Options{SpecEngineRoot: "openspec"})
+	installHooks(t, root, "openspec")
 	runGit(t, root, "checkout", "--quiet", "--detach")
 	stageFile(t, root, "src/app.js", "export const ok = true;\n")
 
@@ -93,7 +93,7 @@ func TestDetachedHeadAllowsTheCommit(t *testing.T) {
 
 func TestUnknownBaseAllowsTheCommit(t *testing.T) {
 	root := initRepo(t, "topic", true)
-	installHooks(t, root, Options{SpecEngineRoot: "openspec"})
+	installHooks(t, root, "openspec")
 	stageFile(t, root, "src/app.js", "export const ok = true;\n")
 
 	output, code := attemptCommit(t, root)
@@ -107,7 +107,7 @@ func TestUnknownBaseAllowsTheCommit(t *testing.T) {
 
 func TestNoCommitsAllowsTheFirstCommit(t *testing.T) {
 	root := initRepo(t, "main", false)
-	installHooks(t, root, Options{SpecEngineRoot: "openspec"})
+	installHooks(t, root, "openspec")
 	stageFile(t, root, "README.md", "# repo\n")
 
 	output, code := attemptCommit(t, root)
@@ -121,7 +121,7 @@ func TestNoCommitsAllowsTheFirstCommit(t *testing.T) {
 
 func TestCustomSpecEngineRootDetectsChangeArtifacts(t *testing.T) {
 	root := initRepo(t, "main", true)
-	installHooks(t, root, Options{SpecEngineRoot: "specs"})
+	installHooks(t, root, "specs")
 	stageFile(t, root, "specs/changes/demo/proposal.md", "# Proposal\n")
 
 	output, code := attemptCommit(t, root)
@@ -135,7 +135,7 @@ func TestCustomSpecEngineRootDetectsChangeArtifacts(t *testing.T) {
 
 func TestSpecEngineRootIsShellQuoted(t *testing.T) {
 	root := initRepo(t, "main", true)
-	installHooks(t, root, Options{SpecEngineRoot: "specs'dir"})
+	installHooks(t, root, "specs'dir")
 	stageFile(t, root, "specs'dir/changes/demo/proposal.md", "# Proposal\n")
 
 	output, code := attemptCommit(t, root)

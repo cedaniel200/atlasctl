@@ -79,6 +79,8 @@ func Run(args []string, env Env) int {
 	switch options.command {
 	case "create", "adopt", "configure":
 		return runSetup(options, env, catalog)
+	case "apply":
+		return runApply(options, env, catalog)
 	}
 
 	// Each command arrives in its own change; until then the facade names it
