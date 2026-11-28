@@ -23,13 +23,13 @@ func writeBundle(t *testing.T, root, id, requires string) {
 	writeSnapshotFile(t, root, id+"/commands/"+id+".md", "command "+id+"\n")
 }
 
-func writeSnapshotFile(t *testing.T, root, rel, content string) {
+func writeSnapshotFile(t *testing.T, root, rel, data string) {
 	t.Helper()
 	path := filepath.Join(root, filepath.FromSlash(rel))
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 		t.Fatalf("MkdirAll(%s) error = %v", rel, err)
 	}
-	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+	if err := os.WriteFile(path, []byte(data), 0o644); err != nil {
 		t.Fatalf("WriteFile(%s) error = %v", rel, err)
 	}
 }
