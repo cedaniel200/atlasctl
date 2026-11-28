@@ -22,6 +22,7 @@ type State struct {
 	SchemaVersion  int               `json:"schema_version"`
 	EngineVersion  string            `json:"engine_version"`
 	Bundles        []string          `json:"bundles"`
+	Setup          Setup             `json:"setup"`
 	Host           Host              `json:"host"`
 	SpecEngine     SpecEngine        `json:"spec_engine"`
 	Language       Language          `json:"language"`
@@ -35,6 +36,14 @@ type State struct {
 	OptionalAgents []string          `json:"optional_agents"`
 	Architecture   Architecture      `json:"architecture"`
 	Preferences    map[string]string `json:"preferences"`
+}
+
+// Setup records whether the initial configuration is complete and which
+// questions are still pending. A project with pending items is operational;
+// check reports them without failing.
+type Setup struct {
+	Complete bool     `json:"complete"`
+	Pending  []string `json:"pending"`
 }
 
 // Host identifies the active host, how it was resolved and the evidence used.
@@ -106,6 +115,7 @@ func Save(path string, value *State) error {
 func (s *State) normalized() State {
 	out := *s
 	out.Bundles = nonNil(out.Bundles)
+	out.Setup.Pending = nonNil(out.Setup.Pending)
 	out.Host.Evidence = nonNil(out.Host.Evidence)
 	out.Stacks = nonNil(out.Stacks)
 	out.Packs = nonNil(out.Packs)

@@ -15,6 +15,7 @@ func sampleState(t *testing.T) *State {
 		SchemaVersion: SchemaVersion,
 		EngineVersion: "0.6.0",
 		Bundles:       []string{"dev"},
+		Setup:         Setup{Complete: false, Pending: []string{"docs", "decisions"}},
 		Host: Host{
 			ID:       "opencode",
 			Source:   "env",

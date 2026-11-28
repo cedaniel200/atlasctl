@@ -5,7 +5,7 @@ package spec
 // inform the human without treating it as a failure.
 type noneAdapter struct{}
 
-func (noneAdapter) ID() string { return "none" }
+func (noneAdapter) ID() string { return noneID }
 
 func (noneAdapter) Root() string { return "" }
 
