@@ -42,9 +42,12 @@ func Facade() []string {
 // Env carries the inputs and outputs of a run so the facade is testable
 // without touching the process environment or the real streams.
 type Env struct {
-	Getenv func(string) string
-	Stdout io.Writer
-	Stderr io.Writer
+	Getenv      func(string) string
+	Stdout      io.Writer
+	Stderr      io.Writer
+	Stdin       io.Reader
+	Interactive bool
+	Project     string
 }
 
 // Run executes one invocation and returns its exit code.
@@ -73,6 +76,10 @@ func Run(args []string, env Env) int {
 		return ExitOK
 	}
 
+	if options.command == "create" {
+		return runSetup(options, env, catalog)
+	}
+
 	// Each command arrives in its own change; until then the facade names it
 	// instead of pretending to run it.
 	fmt.Fprintln(env.Stderr, catalog.T(MsgNotImplemented, map[string]string{"command": options.command}))
@@ -88,6 +95,11 @@ func withDefaults(env Env) Env {
 	}
 	if env.Stderr == nil {
 		env.Stderr = os.Stderr
+	}
+	if env.Project == "" {
+		if project, err := os.Getwd(); err == nil {
+			env.Project = project
+		}
 	}
 	return env
 }

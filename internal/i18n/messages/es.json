@@ -9,5 +9,11 @@
   "setup.prompt.language": "idioma del contenido (es, en) [{default}]: ",
   "setup.prompt.docs": "ruta de documentación (existentes: {choices}; vacío para omitir) [{default}]: ",
   "setup.prompt.decisions": "ruta de decisiones (existentes: {choices}; vacío para omitir) [{default}]: ",
-  "setup.prompt.bundles": "bundles (separados por comas o preset) [{default}]: "
+  "setup.prompt.bundles": "bundles (separados por comas o preset) [{default}]: ",
+  "setup.created": "Se creó .atlas y se aplicó el arnés.",
+  "setup.pending": "Pendiente: {pending}",
+  "setup.complete": "Configuración completa.",
+  "setup.report": "Archivos: {updated} actualizados, {conserved} conservados, {divergent} divergentes, {pruned} podados.",
+  "setup.failed": "No se pudo completar la configuración: {error}",
+  "cli.conflicting_flags": "No se pueden combinar {first} y {second}."
 }
