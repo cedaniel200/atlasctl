@@ -132,3 +132,104 @@ func TestClaudeApplyWritesStartupFile(t *testing.T) {
 		t.Errorf("CLAUDE.md manifest entry = %+v, want a generated dev adapter", entry)
 	}
 }
+
+func TestHostChangeKeepsOwnedAndOverrides(t *testing.T) {
+	root := t.TempDir()
+	writeProjectFile(t, root, ".opencode/agents/analyst.md", "old adapter\n")
+	writeProjectFile(t, root, "docs/project-context.md", "propio\n")
+	writeProjectFile(t, root, "AGENTS.md", "propio\n")
+
+	oldGenerated := state.ManifestFile{
+		Bundle: "dev", Origin: "host:opencode", Layer: state.LayerGenerated,
+		SHA256: content.Checksum([]byte("old adapter\n")),
+	}
+	owned := state.ManifestFile{
+		Bundle: "dev", Origin: "core", Layer: state.LayerOwned,
+		SHA256: content.Checksum([]byte("propio\n")),
+	}
+	override := state.ManifestFile{
+		Bundle: "dev", Origin: "core", Layer: state.LayerOverrides,
+		SHA256: content.Checksum([]byte("contrato original\n")),
+	}
+	manifest := &state.Manifest{
+		SchemaVersion: state.SchemaVersion,
+		Files: map[string]state.ManifestFile{
+			".opencode/agents/analyst.md": oldGenerated,
+			"docs/project-context.md":     owned,
+			"AGENTS.md":                   override,
+		},
+	}
+
+	snapshot := fixtureSnapshot(t)
+	next := claude{}
+	artifacts, err := next.Artifacts(Input{Snapshot: snapshot, Bundles: []string{"dev"}})
+	if err != nil {
+		t.Fatalf("Artifacts() error = %v", err)
+	}
+	planned, err := plan.Build(plan.Request{
+		Snapshot:  snapshot,
+		Manifest:  manifest,
+		Reader:    fsutil.RootReader{Root: root},
+		Generated: artifacts,
+	})
+	if err != nil {
+		t.Fatalf("plan.Build() error = %v", err)
+	}
+
+	union := Transition(opencode{}, next)
+	report, err := apply.Apply(apply.Request{
+		Root:          root,
+		Plan:          planned,
+		Allowed:       union.Allowed,
+		RemoveDirs:    union.LegacyDirs,
+		EngineVersion: "0.6.0",
+		GeneratedAt:   integrationTime,
+	})
+	if err != nil {
+		t.Fatalf("apply.Apply() error = %v", err)
+	}
+
+	if _, err := os.Stat(filepath.Join(root, ".opencode", "agents", "analyst.md")); !os.IsNotExist(err) {
+		t.Errorf("old host adapter was not removed: %v", err)
+	}
+	if !contains(report.Pruned, ".opencode/agents/analyst.md") {
+		t.Errorf("Pruned = %v, want the old adapter", report.Pruned)
+	}
+
+	if data, err := os.ReadFile(filepath.Join(root, "docs", "project-context.md")); err != nil || string(data) != "propio\n" {
+		t.Errorf("owned file = (%q, %v), want it untouched", data, err)
+	}
+	if data, err := os.ReadFile(filepath.Join(root, "AGENTS.md")); err != nil || string(data) != "propio\n" {
+		t.Errorf("override = (%q, %v), want it untouched", data, err)
+	}
+	if contains(report.Updated, "AGENTS.md") {
+		t.Error("the override was overwritten by the base content")
+	}
+	if !contains(report.Conserved, "docs/project-context.md") || !contains(report.Conserved, "AGENTS.md") {
+		t.Errorf("Conserved = %v, want the owned and override files", report.Conserved)
+	}
+
+	if _, err := os.Stat(filepath.Join(root, ".claude", "agents", "analyst.md")); err != nil {
+		t.Errorf("new host adapter was not written: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(root, "CLAUDE.md")); err != nil {
+		t.Errorf("new host startup file was not written: %v", err)
+	}
+
+	written, err := state.LoadManifest(filepath.Join(root, ".atlas", "manifest.json"))
+	if err != nil {
+		t.Fatalf("LoadManifest() error = %v", err)
+	}
+	if _, ok := written.Files[".opencode/agents/analyst.md"]; ok {
+		t.Error("the old adapter is still in the manifest")
+	}
+	if got := written.Files["docs/project-context.md"]; got != owned {
+		t.Errorf("owned entry = %+v, want %+v", got, owned)
+	}
+	if got := written.Files["AGENTS.md"]; got != override {
+		t.Errorf("override entry = %+v, want %+v", got, override)
+	}
+	if got := written.Files[".claude/agents/analyst.md"].Origin; got != "host:claude" {
+		t.Errorf("new adapter origin = %q, want host:claude", got)
+	}
+}
