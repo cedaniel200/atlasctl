@@ -247,29 +247,145 @@ func TestBuildCreatesGeneratedFile(t *testing.T) {
 	}
 }
 
-func TestBuildKeepsFilesThatLeftTheDesiredSet(t *testing.T) {
+func TestBuildDeletesGeneratedFileMissingFromTheDesiredSet(t *testing.T) {
 	planned := buildPlan(t, Request{
 		Snapshot: snapshotWith(t, nil),
 		Manifest: manifestWith(map[string]state.ManifestFile{
-			"old.md":                  tracked(state.LayerBase, "viejo\n"),
 			".opencode/agents/old.md": tracked(state.LayerGenerated, "viejo\n"),
-			"docs/project-context.md": tracked(state.LayerOwned, "propio\n"),
 		}),
-		Reader: diskWith(map[string]string{
-			"old.md":                  "viejo\n",
-			".opencode/agents/old.md": "viejo\n",
-			"docs/project-context.md": "propio\n",
-		}),
+		Reader: diskWith(map[string]string{".opencode/agents/old.md": "viejo\n"}),
 	})
 
-	for _, path := range []string{"old.md", ".opencode/agents/old.md", "docs/project-context.md"} {
+	action := actionAt(t, planned, ".opencode/agents/old.md")
+	if action.Kind != Delete {
+		t.Errorf("kind = %q, want %q", action.Kind, Delete)
+	}
+	if _, ok := planned.Manifest.Files[".opencode/agents/old.md"]; ok {
+		t.Error("the deleted file is still in the planned manifest")
+	}
+}
+
+func TestBuildPrunesByCategory(t *testing.T) {
+	cases := []struct {
+		name         string
+		entry        state.ManifestFile
+		disk         map[string]string
+		prune        bool
+		wantKind     Kind
+		wantAction   bool
+		divergent    bool
+		wantPodeable bool
+	}{
+		{
+			name:         "intact base without prune is kept as a prune candidate",
+			entry:        tracked(state.LayerBase, "viejo\n"),
+			disk:         map[string]string{"old.md": "viejo\n"},
+			wantKind:     Keep,
+			wantAction:   true,
+			wantPodeable: true,
+		},
+		{
+			name:       "intact base with prune is deleted",
+			entry:      tracked(state.LayerBase, "viejo\n"),
+			disk:       map[string]string{"old.md": "viejo\n"},
+			prune:      true,
+			wantKind:   Delete,
+			wantAction: true,
+		},
+		{
+			name:       "modified base is never pruned",
+			entry:      tracked(state.LayerBase, "viejo\n"),
+			disk:       map[string]string{"old.md": "propio\n"},
+			prune:      true,
+			wantKind:   Keep,
+			wantAction: true,
+			divergent:  true,
+		},
+		{
+			name:       "absent base is dropped without action",
+			entry:      tracked(state.LayerBase, "viejo\n"),
+			disk:       nil,
+			prune:      true,
+			wantAction: false,
+		},
+	}
+
+	for _, testCase := range cases {
+		t.Run(testCase.name, func(t *testing.T) {
+			planned := buildPlan(t, Request{
+				Snapshot: snapshotWith(t, nil),
+				Manifest: manifestWith(map[string]state.ManifestFile{"old.md": testCase.entry}),
+				Reader:   diskWith(testCase.disk),
+				Options:  Options{Prune: testCase.prune},
+			})
+
+			if !testCase.wantAction {
+				if hasAction(planned, "old.md") {
+					t.Errorf("action = %+v, want no action", actionAt(t, planned, "old.md"))
+				}
+				if _, ok := planned.Manifest.Files["old.md"]; ok {
+					t.Error("the absent file is still in the planned manifest")
+				}
+				return
+			}
+
+			action := actionAt(t, planned, "old.md")
+			if action.Kind != testCase.wantKind {
+				t.Errorf("kind = %q, want %q", action.Kind, testCase.wantKind)
+			}
+			if action.Divergent != testCase.divergent {
+				t.Errorf("divergent = %t, want %t", action.Divergent, testCase.divergent)
+			}
+			if action.Podeable != testCase.wantPodeable {
+				t.Errorf("podeable = %t, want %t", action.Podeable, testCase.wantPodeable)
+			}
+		})
+	}
+}
+
+func TestBuildExcludesClosedPruneRoutes(t *testing.T) {
+	protected := []string{
+		"openspec/changes/a.md",
+		".opencode/opencode.json",
+		".git/hooks/pre-commit",
+		".atlas/state.json",
+		".atlas/manifest.json",
+	}
+	files := map[string]state.ManifestFile{
+		"docs/old.md": tracked(state.LayerBase, "viejo\n"),
+		".git/hooks/generated": {
+			Bundle: "dev", Origin: "core", Layer: state.LayerGenerated,
+			SHA256: content.Checksum([]byte("viejo\n")),
+		},
+	}
+	disk := map[string]string{"docs/old.md": "viejo\n", ".git/hooks/generated": "viejo\n"}
+	for _, path := range protected {
+		files[path] = tracked(state.LayerBase, "viejo\n")
+		disk[path] = "viejo\n"
+	}
+
+	planned := buildPlan(t, Request{
+		Snapshot: snapshotWith(t, nil),
+		Manifest: manifestWith(files),
+		Reader:   diskWith(disk),
+		Options: Options{
+			Prune:          true,
+			SpecEngineRoot: "openspec",
+			HostConfig:     []string{".opencode/opencode.json"},
+		},
+	})
+
+	if action := actionAt(t, planned, "docs/old.md"); action.Kind != Delete {
+		t.Errorf("docs/old.md kind = %q, want %q", action.Kind, Delete)
+	}
+	for _, path := range protected {
 		action := actionAt(t, planned, path)
 		if action.Kind != Keep {
 			t.Errorf("%s kind = %q, want %q", path, action.Kind, Keep)
 		}
-		if _, ok := planned.Manifest.Files[path]; !ok {
-			t.Errorf("%s left the planned manifest", path)
-		}
+	}
+	if action := actionAt(t, planned, ".git/hooks/generated"); action.Kind != Keep {
+		t.Errorf("excluded generated kind = %q, want %q", action.Kind, Keep)
 	}
 }
 

@@ -6,6 +6,7 @@ package fsutil
 import (
 	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 	"path"
 	"path/filepath"
@@ -53,6 +54,36 @@ func SafeJoin(root, rel string) (string, error) {
 	return filepath.Join(root, filepath.FromSlash(rel)), nil
 }
 
+// CheckNoSymlinks verifies on disk that no component of rel below root is a
+// symbolic link. A missing component ends the check: nothing below it exists,
+// so there is nothing to follow.
+func CheckNoSymlinks(root, rel string) error {
+	if root == "" {
+		return errors.New("empty project root")
+	}
+	if err := ValidateRelative(rel); err != nil {
+		return err
+	}
+
+	components := strings.Split(rel, "/")
+	current := root
+	for index, component := range components {
+		current = filepath.Join(current, component)
+		info, err := os.Lstat(current)
+		if errors.Is(err, fs.ErrNotExist) {
+			return nil
+		}
+		if err != nil {
+			return fmt.Errorf("inspect %q: %w", rel, err)
+		}
+		if info.Mode()&os.ModeSymlink != 0 {
+			crossed := strings.Join(components[:index+1], "/")
+			return fmt.Errorf("refusing to follow symbolic link at %q on path %q", crossed, rel)
+		}
+	}
+	return nil
+}
+
 // RootReader reads project files under Root. It satisfies the read contract
 // used by the classifier: a missing file surfaces as fs.ErrNotExist and an
 // escaping path is a policy error.
@@ -69,11 +100,32 @@ func (r RootReader) Read(rel string) ([]byte, error) {
 	return os.ReadFile(absolute)
 }
 
-// WriteProjectFile writes a project-relative file atomically.
+// WriteProjectFile writes a project-relative file atomically. It refuses paths
+// that cross a symbolic link.
 func WriteProjectFile(root, rel string, data []byte) error {
+	if err := CheckNoSymlinks(root, rel); err != nil {
+		return err
+	}
 	absolute, err := SafeJoin(root, rel)
 	if err != nil {
 		return err
 	}
 	return WriteFile(absolute, data)
+}
+
+// RemoveProjectFile removes a project-relative file. It refuses paths that
+// cross a symbolic link, and an absent file is a no-op so a repeated
+// application stays idempotent.
+func RemoveProjectFile(root, rel string) error {
+	if err := CheckNoSymlinks(root, rel); err != nil {
+		return err
+	}
+	absolute, err := SafeJoin(root, rel)
+	if err != nil {
+		return err
+	}
+	if err := os.Remove(absolute); err != nil && !errors.Is(err, fs.ErrNotExist) {
+		return fmt.Errorf("remove %q: %w", rel, err)
+	}
+	return nil
 }

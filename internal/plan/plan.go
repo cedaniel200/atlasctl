@@ -1,5 +1,5 @@
-// Package plan computes what an application would create, update or keep
-// before anything is written. It is pure: it receives the snapshot, the
+// Package plan computes what an application would create, update, keep or
+// delete before anything is written. It is pure: it receives the snapshot, the
 // manifest and a read-only reader, and returns actions plus the manifest a
 // successful application would leave behind.
 package plan
@@ -7,7 +7,9 @@ package plan
 import (
 	"errors"
 	"fmt"
+	"path"
 	"sort"
+	"strings"
 
 	"github.com/cedaniel200/atlasctl/internal/classify"
 	"github.com/cedaniel200/atlasctl/internal/content"
@@ -24,6 +26,8 @@ const (
 	Update Kind = "update"
 	// Keep leaves the file untouched.
 	Keep Kind = "keep"
+	// Delete removes a file the engine governs.
+	Delete Kind = "delete"
 )
 
 // Action is one planned file operation.
@@ -37,6 +41,9 @@ type Action struct {
 	// expects. A divergent base is kept; a divergent generated file is
 	// regenerated and the lost edit is reported.
 	Divergent bool
+	// Podeable reports an intact base file that left the snapshot and would be
+	// removed by a pruning application.
+	Podeable bool
 }
 
 // Conflict is a path claimed by more than one source. A plan with conflicts is
@@ -55,12 +62,22 @@ type Generated struct {
 	Data   []byte
 }
 
+// Options tunes the plan. Prune allows deleting intact base files that left the
+// snapshot. SpecEngineRoot and HostConfig feed the closed list of routes that
+// are never pruned.
+type Options struct {
+	Prune          bool
+	SpecEngineRoot string
+	HostConfig     []string
+}
+
 // Request is the input of a plan.
 type Request struct {
 	Snapshot  *content.Snapshot
 	Manifest  *state.Manifest
 	Reader    classify.Reader
 	Generated []Generated
+	Options   Options
 }
 
 // Plan is the result: the actions to execute, the conflicts that block the
@@ -114,6 +131,8 @@ func Build(request Request) (*Plan, error) {
 			Files:         make(map[string]state.ManifestFile, len(paths)),
 		},
 	}
+	exclusions := newExclusions(request.Options)
+
 	for _, filePath := range paths {
 		entry, tracked := manifestFiles[filePath]
 		if conflicted[filePath] {
@@ -135,7 +154,7 @@ func Build(request Request) (*Plan, error) {
 			return nil, fmt.Errorf("plan: no classification for %q", filePath)
 		}
 		file, wanted := desired[filePath]
-		action, newEntry, include := decide(filePath, file, wanted, entry, tracked, probe)
+		action, newEntry, include := decide(filePath, file, wanted, entry, tracked, probe, request.Options, exclusions)
 		if action.Path != "" {
 			planned.Actions = append(planned.Actions, action)
 		}
@@ -189,9 +208,9 @@ func probeManifest(paths []string, desired map[string]desiredFile, manifest map[
 	return probes, keepOnly
 }
 
-func decide(filePath string, file desiredFile, wanted bool, entry state.ManifestFile, tracked bool, probe classify.File) (Action, state.ManifestFile, bool) {
+func decide(filePath string, file desiredFile, wanted bool, entry state.ManifestFile, tracked bool, probe classify.File, options Options, exclusions exclusions) (Action, state.ManifestFile, bool) {
 	if !wanted {
-		return decideOrphan(filePath, entry, probe)
+		return decideOrphan(filePath, entry, probe, options, exclusions)
 	}
 	switch file.layer {
 	case state.LayerBase:
@@ -248,19 +267,32 @@ func decideGenerated(filePath string, file desiredFile, entry state.ManifestFile
 	return action, state.ManifestFile{Bundle: file.bundle, Origin: file.origin, Layer: state.LayerGenerated, SHA256: file.sha}, true
 }
 
-func decideOrphan(filePath string, entry state.ManifestFile, probe classify.File) (Action, state.ManifestFile, bool) {
-	if entry.Layer == state.LayerBase {
-		if probe.Status == classify.StatusAbsent {
-			// Nothing to conserve; the entry leaves the manifest.
+func decideOrphan(filePath string, entry state.ManifestFile, probe classify.File, options Options, exclusions exclusions) (Action, state.ManifestFile, bool) {
+	switch entry.Layer {
+	case state.LayerGenerated:
+		if exclusions.protects(filePath) {
+			return Action{Path: filePath, Kind: Keep, Layer: entry.Layer}, entry, true
+		}
+		return Action{Path: filePath, Kind: Delete, Layer: entry.Layer}, state.ManifestFile{}, false
+	case state.LayerBase:
+		switch {
+		case probe.Status == classify.StatusAbsent:
+			// Nothing to conserve or delete; the entry leaves the manifest.
 			return Action{}, state.ManifestFile{}, false
-		}
-		if probe.ActualSHA256 != entry.SHA256 {
+		case probe.ActualSHA256 != entry.SHA256:
+			// A modified base is never pruned.
 			return Action{Path: filePath, Kind: Keep, Layer: entry.Layer, Divergent: true}, entry, true
+		case exclusions.protects(filePath):
+			return Action{Path: filePath, Kind: Keep, Layer: entry.Layer}, entry, true
+		case options.Prune:
+			return Action{Path: filePath, Kind: Delete, Layer: entry.Layer}, state.ManifestFile{}, false
+		default:
+			return Action{Path: filePath, Kind: Keep, Layer: entry.Layer, Podeable: true}, entry, true
 		}
+	default:
+		// Overrides, owned and unknown layers are never touched.
+		return Action{Path: filePath, Kind: Keep, Layer: entry.Layer}, entry, true
 	}
-	// Generated, overrides, owned and intact base content is kept. Deleting a
-	// file that left the desired set is a separate pruning decision.
-	return Action{Path: filePath, Kind: Keep, Layer: entry.Layer}, entry, true
 }
 
 func desiredFiles(snapshot *content.Snapshot, generated []Generated) (map[string]desiredFile, []Conflict) {
@@ -347,4 +379,37 @@ func uniqueSorted(values []string) []string {
 	}
 	sort.Strings(unique)
 	return unique
+}
+
+// exclusions is the closed list of routes that are never pruned: Git metadata,
+// the engine's own state and manifest, the specification engine root and the
+// host configuration files. It applies to every deletion, including generated
+// content.
+type exclusions []string
+
+func newExclusions(options Options) exclusions {
+	roots := []string{".git", ".atlas/state.json", ".atlas/manifest.json"}
+	if options.SpecEngineRoot != "" {
+		roots = append(roots, options.SpecEngineRoot)
+	}
+	roots = append(roots, options.HostConfig...)
+
+	result := make(exclusions, 0, len(roots))
+	for _, root := range roots {
+		cleaned := path.Clean(strings.TrimSpace(root))
+		if cleaned == "" || cleaned == "." {
+			continue
+		}
+		result = append(result, cleaned)
+	}
+	return result
+}
+
+func (e exclusions) protects(filePath string) bool {
+	for _, root := range e {
+		if filePath == root || strings.HasPrefix(filePath, root+"/") {
+			return true
+		}
+	}
+	return false
 }
