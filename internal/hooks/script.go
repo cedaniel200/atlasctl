@@ -10,7 +10,9 @@ var dispatcherTemplate string
 
 const specRootPlaceholder = "{{SPEC_ENGINE_ROOT}}"
 
-func dispatcher(specRoot string) []byte {
+// Script returns the generated dispatcher for specRoot. The plan publishes it
+// as a generated artifact; the applier writes it with the executable mode.
+func Script(specRoot string) []byte {
 	return []byte(strings.ReplaceAll(dispatcherTemplate, specRootPlaceholder, shellQuote(specRoot)))
 }
 

@@ -51,11 +51,7 @@ func Apply(request Request) (*Report, error) {
 	if request.EngineVersion == "" {
 		return nil, errors.New("apply: engine version is required")
 	}
-	if err := checkConflicts(request.Plan); err != nil {
-		return nil, err
-	}
-
-	if err := preflight(request); err != nil {
+	if err := Validate(request); err != nil {
 		return nil, err
 	}
 
@@ -69,12 +65,29 @@ func Apply(request Request) (*Report, error) {
 	return report, nil
 }
 
+// Validate checks the conflicts and every route the plan would touch without
+// writing anything. A dry run uses it so its verdict matches a real
+// application.
+func Validate(request Request) error {
+	if request.Plan == nil {
+		return errors.New("apply: nil plan")
+	}
+	if err := checkConflicts(request.Plan); err != nil {
+		return err
+	}
+	return preflight(request)
+}
+
 func execute(request Request) (*Report, error) {
 	report := &Report{}
 	for _, action := range request.Plan.Actions {
 		switch action.Kind {
 		case plan.Create, plan.Update:
-			if err := fsutil.WriteProjectFile(request.Root, action.Path, action.Data); err != nil {
+			mode := action.Mode
+			if mode == 0 {
+				mode = 0o644
+			}
+			if err := fsutil.WriteProjectFileMode(request.Root, action.Path, action.Data, mode); err != nil {
 				return nil, fmt.Errorf("apply: %w", err)
 			}
 			report.Updated = append(report.Updated, action.Path)

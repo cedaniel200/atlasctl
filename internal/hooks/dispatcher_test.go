@@ -10,7 +10,7 @@ import (
 func featureRepo(t *testing.T) string {
 	t.Helper()
 	root := initRepo(t, "main", true)
-	installHooks(t, root, Options{SpecEngineRoot: "openspec"})
+	installHooks(t, root, "openspec")
 	runGit(t, root, "checkout", "--quiet", "-b", "feature/test")
 	return root
 }

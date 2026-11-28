@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/cedaniel200/atlasctl/internal/content"
+	"github.com/cedaniel200/atlasctl/internal/hooks"
 	"github.com/cedaniel200/atlasctl/internal/i18n"
 	"github.com/cedaniel200/atlasctl/internal/setup"
 	"github.com/cedaniel200/atlasctl/internal/state"
@@ -413,5 +414,31 @@ func TestConfigureWithoutState(t *testing.T) {
 	}
 	if _, err := os.Stat(filepath.Join(project, ".atlas")); !os.IsNotExist(err) {
 		t.Errorf(".atlas was created: %v", err)
+	}
+}
+
+func TestCreateRecordsDispatcherAsGenerated(t *testing.T) {
+	project := t.TempDir()
+	if _, err := Create(request(project, setup.Answers{Host: "opencode"})); err != nil {
+		t.Fatalf("Create() error = %v", err)
+	}
+
+	manifest, err := state.LoadManifest(filepath.Join(project, ".atlas", "manifest.json"))
+	if err != nil {
+		t.Fatalf("LoadManifest() error = %v", err)
+	}
+	entry, ok := manifest.Files[hooks.DispatcherPath]
+	if !ok {
+		t.Fatalf("manifest has no entry for %s", hooks.DispatcherPath)
+	}
+	if entry.Layer != state.LayerGenerated || entry.Origin != "core" || entry.Bundle != "dev" {
+		t.Errorf("dispatcher entry = %+v, want generated core content of dev", entry)
+	}
+	info, err := os.Stat(filepath.Join(project, filepath.FromSlash(hooks.DispatcherPath)))
+	if err != nil {
+		t.Fatalf("Stat(dispatcher) error = %v", err)
+	}
+	if info.Mode().Perm() != 0o755 {
+		t.Errorf("dispatcher mode = %o, want 0755", info.Mode().Perm())
 	}
 }

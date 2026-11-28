@@ -679,3 +679,34 @@ func TestApplyRejectsSymlinkedLegacyDirectory(t *testing.T) {
 		t.Errorf("external content was removed: %v", err)
 	}
 }
+
+func TestApplyWritesExecutableContent(t *testing.T) {
+	root := t.TempDir()
+	snapshot := snapshotWith(t, nil)
+	planned, err := plan.Build(plan.Request{
+		Snapshot: snapshot,
+		Manifest: &state.Manifest{SchemaVersion: state.SchemaVersion},
+		Reader:   fsutil.RootReader{Root: root},
+		Generated: []plan.Generated{{
+			Path: "hooks/pre-commit", Bundle: "dev", Origin: "core",
+			Data: []byte("#!/bin/sh\n"), Mode: 0o755,
+		}},
+	})
+	if err != nil {
+		t.Fatalf("plan.Build() error = %v", err)
+	}
+
+	if _, err := Apply(Request{
+		Root: root, Plan: planned, Allowed: []string{"hooks"},
+		EngineVersion: "0.6.0", GeneratedAt: fixedTime,
+	}); err != nil {
+		t.Fatalf("Apply() error = %v", err)
+	}
+	info, err := os.Stat(filepath.Join(root, "hooks", "pre-commit"))
+	if err != nil {
+		t.Fatalf("Stat() error = %v", err)
+	}
+	if mode := info.Mode().Perm(); mode != 0o755 {
+		t.Errorf("mode = %o, want 0755", mode)
+	}
+}
