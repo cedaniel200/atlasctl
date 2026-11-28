@@ -1,0 +1,8 @@
+{
+  "cli.usage": "usage: atlasctl [--lang es|en] <command>\n\ncommands: {commands}",
+  "cli.unknown_command": "unknown command: {command}",
+  "cli.available_commands": "available commands: {commands}",
+  "cli.unknown_flag": "unknown flag: {flag}",
+  "cli.missing_flag_value": "flag {flag} requires a value",
+  "cli.not_implemented": "{command}: not implemented in this build"
+}
