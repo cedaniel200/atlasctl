@@ -5,6 +5,7 @@ package apply
 import (
 	"errors"
 	"fmt"
+	"sort"
 	"strings"
 	"time"
 
@@ -26,11 +27,14 @@ type Report struct {
 }
 
 // Request is the input of an application. Allowed lists the project routes the
-// host declares; .atlas/ is always allowed.
+// host declares; .atlas/ is always allowed. RemoveDirs lists legacy host
+// directories that must disappear, such as the singular OpenCode agents
+// directory.
 type Request struct {
 	Root          string
 	Plan          *plan.Plan
 	Allowed       []string
+	RemoveDirs    []string
 	EngineVersion string
 	GeneratedAt   time.Time
 }
@@ -88,6 +92,21 @@ func execute(request Request) (*Report, error) {
 			report.Divergent = append(report.Divergent, action.Path)
 		}
 	}
+
+	for _, directory := range request.RemoveDirs {
+		removed, err := fsutil.RemoveProjectTree(request.Root, directory)
+		if err != nil {
+			return nil, fmt.Errorf("apply: %w", err)
+		}
+		if removed {
+			report.Pruned = append(report.Pruned, directory)
+		}
+	}
+
+	sort.Strings(report.Updated)
+	sort.Strings(report.Conserved)
+	sort.Strings(report.Divergent)
+	sort.Strings(report.Pruned)
 	return report, nil
 }
 
@@ -114,6 +133,17 @@ func preflight(request Request) error {
 			return fmt.Errorf("apply: path %q is outside .atlas/ and the routes declared by the host", action.Path)
 		}
 		if err := fsutil.CheckNoSymlinks(request.Root, action.Path); err != nil {
+			return fmt.Errorf("apply: %w", err)
+		}
+	}
+	for _, directory := range request.RemoveDirs {
+		if _, err := fsutil.SafeJoin(request.Root, directory); err != nil {
+			return fmt.Errorf("apply: %w", err)
+		}
+		if !isAuthorized(directory, allowed) {
+			return fmt.Errorf("apply: path %q is outside .atlas/ and the routes declared by the host", directory)
+		}
+		if err := fsutil.CheckNoSymlinks(request.Root, directory); err != nil {
 			return fmt.Errorf("apply: %w", err)
 		}
 	}
